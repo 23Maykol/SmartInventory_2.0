@@ -1,0 +1,26 @@
+services:
+  backend:
+    build: ./backend
+    container_name: smart_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - smart_network
+
+  frontend:
+    build: ./frontend
+    container_name: smart_frontend
+    restart: always
+    ports:
+      - "3001:80"
+    networks:
+      - smart_network
+
+networks:
+  smart_network:
+    driver: bridge
