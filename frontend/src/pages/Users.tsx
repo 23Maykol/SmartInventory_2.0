@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import api from '../api/axios'
 import Navbar from '../components/Navbar'
 import type { UserItem, UsersResponse, UserStats } from '../types'
+import { AuthContext } from '../context/AuthContext'
 
-const Users = () => {
+const Users: React.FC = () => {
     const [users, setUsers] = useState<UserItem[]>([])
     const [stats, setStats] = useState<UserStats | null>(null)
     const [loading, setLoading] = useState(true)
@@ -16,7 +17,8 @@ const Users = () => {
     const [editUser, setEditUser] = useState<UserItem | null>(null)
     const [editForm, setEditForm] = useState({ name: '', email: '', role: '' })
     const [editError, setEditError] = useState('')
-    const [editLoading, setEditLoading] = useState(false)
+    const [editLoading, setEditLoading] = useState(false);
+    const { isSuperAdmin } = useContext(AuthContext);
 
     const fetchStats = async () => {
         try {
@@ -112,17 +114,18 @@ const Users = () => {
                         type="text"
                         placeholder="Buscar por nombre o email..."
                         value={search}
-                        onChange={e => { setSearch(e.target.value); setPage(1) }}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }}
                         style={styles.searchInput}
                     />
                     <select
                         value={roleFilter}
-                        onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setRoleFilter(e.target.value); setPage(1); }}
                         style={styles.select}
                     >
                         <option value="">Todos los roles</option>
                         <option value="admin">Admin</option>
                         <option value="employee">Empleado</option>
+                        <option value="super_admin">Super Admin</option>
                     </select>
                     <span style={styles.totalText}>Total: {total} usuarios</span>
                 </div>
@@ -161,10 +164,10 @@ const Users = () => {
                                             <td style={styles.td}>
                                                 <span style={{
                                                     ...styles.badge,
-                                                    background: user.role === 'admin' ? '#f5f3ff' : '#ecfdf5',
-                                                    color: user.role === 'admin' ? '#7c3aed' : '#059669'
+                                                    background: user.role === 'admin' ? '#f5f3ff' : user.role === 'super_admin' ? '#ffe4e6' : '#ecfdf5',
+                                                    color: user.role === 'admin' ? '#7c3aed' : user.role === 'super_admin' ? '#e11d48' : '#059669'
                                                 }}>
-                                                    {user.role === 'admin' ? 'Admin' : 'Empleado'}
+                                                    {user.role === 'admin' ? 'Admin' : user.role === 'super_admin' ? 'Super Admin' : 'Empleado'}
                                                 </span>
                                             </td>
                                             <td style={styles.td}>
@@ -181,27 +184,31 @@ const Users = () => {
                                             </td>
                                             <td style={styles.td}>
                                                 <div style={styles.actions}>
-                                                    <button
-                                                        className="btn-secondary"
-                                                        style={styles.actionBtn}
-                                                        onClick={() => handleEditOpen(user)}
-                                                    >
-                                                        Editar
-                                                    </button>
-                                                    <button
-                                                        style={{
-                                                            ...styles.actionBtn,
-                                                            background: user.is_active ? '#fff1f2' : '#ecfdf5',
-                                                            color: user.is_active ? '#e11d48' : '#047857',
-                                                            border: user.is_active ? '1px solid #ffe4e6' : '1px solid #d1fae5',
-                                                            borderRadius: '8px',
-                                                            cursor: 'pointer',
-                                                            fontWeight: 600
-                                                        }}
-                                                        onClick={() => handleToggle(user.id)}
-                                                    >
-                                                        {user.is_active ? 'Desactivar' : 'Activar'}
-                                                    </button>
+                                                    {isSuperAdmin && (
+                                                        <>
+                                                            <button
+                                                                className="btn-secondary"
+                                                                style={styles.actionBtn}
+                                                                onClick={() => handleEditOpen(user)}
+                                                            >
+                                                                Editar
+                                                            </button>
+                                                            <button
+                                                                style={{
+                                                                    ...styles.actionBtn,
+                                                                    background: user.is_active ? '#fff1f2' : '#ecfdf5',
+                                                                    color: user.is_active ? '#e11d48' : '#047857',
+                                                                    border: user.is_active ? '1px solid #ffe4e6' : '1px solid #d1fae5',
+                                                                    borderRadius: '8px',
+                                                                    cursor: 'pointer',
+                                                                    fontWeight: 600
+                                                                }}
+                                                                onClick={() => handleToggle(user.id)}
+                                                            >
+                                                                {user.is_active ? 'Desactivar' : 'Activar'}
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -260,8 +267,9 @@ const Users = () => {
                                     onChange={e => setEditForm({ ...editForm, role: e.target.value })}
                                     style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#0f172a', backgroundColor: '#fff' }}
                                 >
-                                    <option value="admin">Admin</option>
-                                    <option value="employee">Empleado</option>
+                                     <option value="admin">Admin</option>
+                                     <option value="super_admin">Super Admin</option>
+                                     <option value="employee">Empleado</option>
                                 </select>
                             </div>
                             {editError && <p className="error-msg">{editError}</p>}

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import api from '../api/axios'
-import Navbar from '../components/Navbar'
-import { useAuth } from '../hooks/useAuth'
-import type { DashboardStats } from '../types'
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../api/axios';
+import Navbar from '../components/Navbar';
+import { useAuth } from '../hooks/useAuth';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
+import type { DashboardStats } from '../types';
 
 // SVGs helper
 const icons = {
@@ -18,7 +19,7 @@ const icons = {
     report: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
 }
 
-const Dashboard = () => {
+const Dashboard: React.FC = () => {
     const { user, isAdmin } = useAuth()
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
@@ -41,7 +42,14 @@ const Dashboard = () => {
                 <div style={styles.welcome}>
                     <h1 style={styles.title}>Bienvenido, {user?.name}</h1>
                     <p style={styles.subtitle}>
-                        Rol: <strong style={{ color: '#0f172a' }}>{user?.role === 'admin' ? 'Administrador' : 'Empleado'}</strong>
+                        Rol: <strong style={{ color: '#0f172a' }}>{user?.role === 'admin'
+                            ? 'Administrador'
+                            : user?.role === 'super_admin'
+                                ? 'Super Admin'
+                                : 'Empleado'
+                        }
+                        </strong>
+
                     </p>
                 </div>
 
@@ -71,47 +79,26 @@ const Dashboard = () => {
                         </div>
 
                         <div style={styles.twoCol}>
-                            {/* Movimientos recientes */}
                             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                                 <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={styles.cardTitle}>Movimientos Recientes</h3>
+                                    <h3 style={styles.cardTitle}>Movimientos</h3>
                                 </div>
-                                {stats.recentMovements.length === 0 ? (
-                                    <p style={styles.empty}>Sin movimientos aún</p>
-                                ) : (
-                                    <table style={styles.table}>
-                                        <thead>
-                                            <tr style={styles.tableHead}>
-                                                <th style={styles.th}>Producto</th>
-                                                <th style={styles.th}>Tipo</th>
-                                                <th style={styles.th}>Cantidad</th>
-                                                <th style={styles.th}>Usuario</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {stats.recentMovements.map(m => (
-                                                <tr key={m.id} style={styles.tr}>
-                                                    <td style={styles.td}>{m.product_name}</td>
-                                                    <td style={styles.td}>
-                                                        <span style={{
-                                                            ...styles.badge,
-                                                            background: m.type === 'entrada' ? '#d1fae5' : '#ffe4e6',
-                                                            color: m.type === 'entrada' ? '#047857' : '#be123c'
-                                                        }}>
-                                                            {m.type === 'entrada' ? 'Entrada' : 'Salida'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={styles.td}>
-                                                        <strong style={{ color: m.type === 'entrada' ? '#047857' : '#be123c' }}>
-                                                            {m.type === 'entrada' ? '+' : '-'}{m.quantity}
-                                                        </strong>
-                                                    </td>
-                                                    <td style={styles.td}>{m.user_name}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                )}
+                                <div style={styles.chartContainer}>
+                                    <ResponsiveContainer width="100%" height={250}>
+                                        <BarChart
+                                            data={[
+                                                { name: 'Entradas', value: stats?.movements?.total_entradas ?? 0 },
+                                                { name: 'Salidas', value: stats?.movements?.total_salidas ?? 0 }
+                                            ]}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="name" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Bar dataKey="value" fill="#4f46e5" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
 
                             {/* Stock bajo */}
@@ -122,6 +109,18 @@ const Dashboard = () => {
                                         Productos con Stock Bajo
                                     </h3>
                                 </div>
+{stats.lowStockProducts.length > 0 && (
+  <ResponsiveContainer width="100%" height={250}>
+    <BarChart data={stats.lowStockProducts.map(p => ({ name: p.name, stock: p.stock }))}>
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="name" />
+      <YAxis />
+      <Tooltip />
+      <Bar dataKey="stock" fill="#ef4444" />
+    </BarChart>
+  </ResponsiveContainer>
+)}
+
                                 {stats.lowStockProducts.length === 0 ? (
                                     <p style={styles.empty}>No hay productos con stock bajo</p>
                                 ) : (
@@ -160,11 +159,20 @@ const Dashboard = () => {
                         </div>
 
                         {/* Top productos */}
-                        {stats.topProducts.length > 0 && (
+                        {stats && stats.topProducts.length > 0 && (
                             <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
                                 <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
                                     <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>Top Productos más Movidos</h3>
                                 </div>
+<ResponsiveContainer width="100%" height={250}>
+  <BarChart data={stats.topProducts.map(p => ({ name: p.name, movimientos: p.total_movimientos }))}>
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="name" />
+    <YAxis />
+    <Tooltip />
+    <Bar dataKey="movimientos" fill="#4f46e5" />
+  </BarChart>
+</ResponsiveContainer>
                                 <table style={styles.table}>
                                     <thead>
                                         <tr style={styles.tableHead}>
@@ -246,8 +254,8 @@ const styles: Record<string, React.CSSProperties> = {
         gap: '1.25rem',
         marginBottom: '2rem'
     },
-    statCard: { 
-        display: 'flex', 
+    statCard: {
+        display: 'flex',
         flexDirection: 'column',
         padding: '1.5rem',
         border: '1px solid rgba(226, 232, 240, 0.6)'
@@ -324,8 +332,8 @@ const styles: Record<string, React.CSSProperties> = {
         gap: '1.25rem'
     },
     cardLink: { textDecoration: 'none' },
-    quickCard: { 
-        padding: '1.5rem', 
+    quickCard: {
+        padding: '1.5rem',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         display: 'flex',
@@ -333,7 +341,7 @@ const styles: Record<string, React.CSSProperties> = {
         alignItems: 'flex-start',
         border: '1px solid rgba(226, 232, 240, 0.8)'
     },
-    quickIcon: { 
+    quickIcon: {
         width: '48px',
         height: '48px',
         borderRadius: '12px',
@@ -347,4 +355,4 @@ const styles: Record<string, React.CSSProperties> = {
     quickDesc: { color: '#64748b', fontSize: '0.85rem' }
 }
 
-export default Dashboard
+export default Dashboard;

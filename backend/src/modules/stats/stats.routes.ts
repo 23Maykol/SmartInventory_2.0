@@ -5,6 +5,6 @@ import { authenticate, authorize } from '../../middleware/auth.middleware'
 const router = Router()
 const controller = new StatsController()
 
-router.get('/dashboard', authenticate, authorize('admin'), controller.getDashboard)
+router.get('/dashboard', authenticate, authorize('super_admin', 'admin'), controller.getDashboard)
 
 export default router

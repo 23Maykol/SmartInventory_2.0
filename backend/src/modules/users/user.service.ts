@@ -1,7 +1,8 @@
 import { UserRepository } from './user.repository'
 import { UpdateUserInput, ListUsersInput } from './user.schema'
 import { AppError } from '../../middleware/error.middleware'
-import { logger } from '../../config/logger'
+import { logger } from '../../config/logger';
+import bcrypt from 'bcryptjs';
 
 export class UserService {
     private repository: UserRepository
@@ -50,5 +51,24 @@ export class UserService {
 
     async getStats() {
         return await this.repository.getStats()
+    }
+
+    async findByEmail(email: string) {
+        const user = await this.repository.findByEmail(email)
+        return user
+    }
+
+    async create(data: any) {
+        // data includes name, email, password, role
+        const hashed = await bcrypt.hash(data.password, 10)
+        const userId = await this.repository.create({
+            name: data.name,
+            email: data.email,
+            password: hashed,
+            role: data.role ?? 'employee',
+        })
+        const user = await this.repository.findById(userId)
+        logger.info(`Usuario creado: ID ${userId}`)
+        return user
     }
 }

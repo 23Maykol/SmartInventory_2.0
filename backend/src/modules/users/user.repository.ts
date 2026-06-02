@@ -75,6 +75,22 @@ export class UserRepository {
         return result.affectedRows > 0
     }
 
+    async findByEmail(email: string): Promise<User | null> {
+        const [rows] = await pool.execute<any[]>(
+            'SELECT * FROM users WHERE email = ? AND is_active = true LIMIT 1',
+            [email]
+        )
+        return rows[0] || null
+    }
+
+    async create(data: { name: string; email: string; password: string; role: string }): Promise<number> {
+        const [result] = await pool.execute<any>(
+            'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+            [data.name, data.email, data.password, data.role]
+        )
+        return result.insertId
+    }
+
     async getStats(): Promise<any> {
         const [rows] = await pool.execute<any[]>(`
       SELECT

@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express'
+import { Request, Response, NextFunction } from 'express';
+import bcrypt from 'bcryptjs';
 import { UserService } from './user.service'
 import { listUsersSchema } from './user.schema'
 
@@ -28,16 +29,30 @@ export class UserController {
         }
     }
 
+    create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const user = await this.service.create(req.body);
+            res.status(201).json({ ok: true, data: user });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            const user = await this.service.update(Number(req.params.id), req.body)
+            // Prevent non-super_admin from modifying role
+            const payload = { ...req.body };
+            if (req.user?.role !== 'super_admin' && payload.role) {
+                delete payload.role;
+            }
+            const user = await this.service.update(Number(req.params.id), payload);
             res.status(200).json({
                 ok: true,
                 message: 'Usuario actualizado exitosamente',
                 data: user
-            })
+            });
         } catch (error) {
-            next(error)
+            next(error);
         }
     }
 

@@ -2,7 +2,7 @@ export interface User {
     id: number
     name: string
     email: string
-    role: 'admin' | 'employee'
+    role: 'admin' | 'employee' | 'super_admin'
 }
 
 export interface Product {
@@ -44,7 +44,7 @@ export interface UserItem {
     id: number
     name: string
     email: string
-    role: 'admin' | 'employee'
+    role: 'admin' | 'employee' | 'super_admin',
     is_active: boolean
     created_at: string
 }

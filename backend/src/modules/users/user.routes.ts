@@ -2,18 +2,24 @@ import { Router } from 'express'
 import { UserController } from './user.controller'
 import { authenticate, authorize } from '../../middleware/auth.middleware'
 import { validate } from '../../middleware/validate.middleware'
-import { updateUserSchema } from './user.schema'
+import { updateUserSchema, createUserSchema } from './user.schema'
 
 const router = Router()
 const controller = new UserController()
 
-// Todas las rutas requieren autenticación y rol admin
-router.use(authenticate, authorize('admin'))
+// Auth middleware: only authentication required for all routes
+router.use(authenticate)
 
-router.get('/', controller.getAll)
-router.get('/stats', controller.getStats)
-router.get('/:id', controller.getById)
-router.put('/:id', validate(updateUserSchema), controller.update)
-router.patch('/:id/toggle', controller.toggleActive)
+// Lectura: admin y super_admin pueden listar, ver stats y obtener usuarios
+router.get('/', authorize('super_admin', 'admin'), controller.getAll)
+router.get('/stats', authorize('super_admin', 'admin'), controller.getStats)
+router.get('/:id', authorize('super_admin', 'admin'), controller.getById)
+
+// Creación solo super_admin
+router.post('/', authorize('super_admin'), validate(createUserSchema), controller.create)
+
+// Actualización y toggle solo super_admin
+router.put('/:id', authorize('super_admin'), validate(updateUserSchema), controller.update)
+router.patch('/:id/toggle', authorize('super_admin'), controller.toggleActive)
 
 export default router

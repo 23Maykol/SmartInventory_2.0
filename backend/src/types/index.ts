@@ -3,7 +3,7 @@ export interface User {
     name: string
     email: string
     password: string
-    role: 'admin' | 'employee'
+    role: 'super_admin' | 'admin' | 'employee'
     is_active: boolean
     created_at: Date
 }
@@ -32,7 +32,7 @@ export interface InventoryMovement {
 export interface JwtPayload {
     id: number
     email: string
-    role: 'admin' | 'employee'
+    role: 'super_admin' | 'admin' | 'employee'
 }
 
 export interface ApiResponse<T = null> {
