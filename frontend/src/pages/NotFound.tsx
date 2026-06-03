@@ -1,13 +1,29 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
-const NotFound = () => (
-    <div style={styles.container}>
-        <h1 style={styles.code}>404</h1>
-        <h2 style={styles.title}>Página no encontrada</h2>
-        <p style={styles.desc}>La página que buscas no existe o fue movida.</p>
-        <Link to="/login" style={styles.btn}>Volver al inicio</Link>
-    </div>
-)
+const NotFound = () => {
+    const { isAuthenticated, isSuperAdmin } = useAuth()
+    const navigate = useNavigate()
+
+    const handleBack = () => {
+        if (!isAuthenticated) {
+            navigate('/login')
+        } else if (isSuperAdmin) {
+            navigate('/super-dashboard')
+        } else {
+            navigate('/dashboard')
+        }
+    }
+
+    return (
+        <div style={styles.container}>
+            <h1 style={styles.code}>404</h1>
+            <h2 style={styles.title}>Página no encontrada</h2>
+            <p style={styles.desc}>La página que buscas no existe o fue movida.</p>
+            <button onClick={handleBack} style={styles.btn}>Volver al inicio</button>
+        </div>
+    )
+}
 
 const styles: Record<string, React.CSSProperties> = {
     container: {
@@ -30,6 +46,9 @@ const styles: Record<string, React.CSSProperties> = {
         padding: '0.8rem 2rem',
         borderRadius: '8px',
         fontWeight: 600,
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '1rem',
         textDecoration: 'none'
     }
 }

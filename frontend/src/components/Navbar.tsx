@@ -2,20 +2,25 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 const Navbar = () => {
-    const { user, logout, isAdmin } = useAuth()
+    const { user, logout, isAdmin, isSuperAdmin } = useAuth()
     const navigate = useNavigate()
-    const location = useLocation() // Para saber qué link está activo
+    const location = useLocation()
 
     const handleLogout = () => {
         logout()
         navigate('/login')
     }
 
-    // Función para aplicar estilo al link activo
-    const getLinkStyle = (path: string) => ({
-        ...styles.link,
-        ...(location.pathname === path ? styles.activeLink : {})
-    })
+    const getLinkStyle = (path: string, tab?: string) => {
+        const currentTab = new URLSearchParams(location.search).get('tab') || 'global';
+        const isActive = location.pathname === path && (!tab || currentTab === tab);
+        return {
+            ...styles.link,
+            ...(isActive ? styles.activeLink : {})
+        };
+    }
+
+    const dashboardPath = isSuperAdmin ? '/super-dashboard' : '/dashboard'
 
     return (
         <nav style={styles.nav}>
@@ -27,24 +32,62 @@ const Navbar = () => {
                         <line x1="12" y1="22.08" x2="12" y2="12"></line>
                     </svg>
                 </div>
-                <Link to="/dashboard" style={styles.brandLink}>Smart Inventory</Link>
+                <Link to={dashboardPath} style={styles.brandLink}>Smart Inventory</Link>
             </div>
 
             <div style={styles.navLinks}>
-                <Link to="/dashboard" style={getLinkStyle('/dashboard')}>Dashboard</Link>
-                <Link to="/products" style={getLinkStyle('/products')}>Productos</Link>
-                <Link to="/movements" style={getLinkStyle('/movements')}>Movimientos</Link>
+                {!isSuperAdmin && (
+                    <>
+                        <Link to="/dashboard?tab=global" style={getLinkStyle('/dashboard', 'global')}>
+                            Vista Global
+                        </Link>
+                        {isAdmin && (
+                            <Link to="/dashboard?tab=charts" style={getLinkStyle('/dashboard', 'charts')}>
+                                Gráficos
+                            </Link>
+                        )}
+                    </>
+                )}
+                {isSuperAdmin && (
+                    <>
+                        <Link to="/super-dashboard?tab=global" style={getLinkStyle('/super-dashboard', 'global')}>
+                            Vista Global
+                        </Link>
+                        <Link to="/super-dashboard?tab=charts" style={getLinkStyle('/super-dashboard', 'charts')}>
+                            Gráficos
+                        </Link>
+                        <Link to="/super-dashboard?tab=branches" style={getLinkStyle('/super-dashboard', 'branches')}>
+                            Sucursales
+                        </Link>
+                    </>
+                )}
+                {!isSuperAdmin && (
+                    <>
+                        <Link to="/products" style={getLinkStyle('/products')}>Productos</Link>
+                        <Link to="/movements" style={getLinkStyle('/movements')}>Movimientos</Link>
+                    </>
+                )}
                 {isAdmin && <Link to="/users" style={getLinkStyle('/users')}>Usuarios</Link>}
             </div>
 
             <div style={styles.userSection}>
                 <div style={styles.userInfo}>
                     <span style={styles.userName}>{user?.name}</span>
-                    <span style={styles.userRole}>{user?.role}</span>
+                    <span style={styles.userRole}>
+                        {user?.role === 'super_admin' ? 'Super Admin' : user?.role === 'admin' ? 'Admin' : 'Empleado'}
+                    </span>
                 </div>
 
                 {/* Avatar circular visual */}
-                <div style={styles.avatar}>
+                <div style={{
+                    ...styles.avatar,
+                    background: isSuperAdmin
+                        ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
+                        : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    boxShadow: isSuperAdmin
+                        ? '0 4px 6px -1px rgba(99, 102, 241, 0.3)'
+                        : '0 4px 6px -1px rgba(16, 185, 129, 0.2)'
+                }}>
                     {user?.name?.charAt(0).toUpperCase()}
                 </div>
 
@@ -142,14 +185,12 @@ const styles: Record<string, React.CSSProperties> = {
         width: '40px',
         height: '40px',
         borderRadius: '50%',
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         color: '#ffffff',
         fontWeight: 700,
         fontSize: '1rem',
-        boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)'
     },
     logoutBtn: {
         display: 'flex',

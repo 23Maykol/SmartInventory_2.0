@@ -11,8 +11,8 @@ router.use(authenticate)
 
 router.get('/', controller.getAll)
 router.get('/:id', controller.getById)
-router.post('/', validate(createProductSchema), controller.create)
-router.put('/:id', authorize('admin', 'super_admin'), validate(updateProductSchema), controller.update)
-router.delete('/:id', authorize('admin', 'super_admin'), controller.delete)
+router.post('/', authorize('admin', 'employee'), validate(createProductSchema), controller.create)
+router.put('/:id', authorize('admin'), validate(updateProductSchema), controller.update)
+router.delete('/:id', authorize('admin'), controller.delete)
 
 export default router

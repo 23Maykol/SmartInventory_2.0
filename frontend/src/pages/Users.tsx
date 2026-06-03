@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { useState, useEffect, useCallback, useContext } from 'react';
+import type { FC } from 'react';
 import api from '../api/axios'
 import Navbar from '../components/Navbar'
-import type { UserItem, UsersResponse, UserStats } from '../types'
+import type { UserItem, UsersResponse, UserStats, Branch } from '../types'
 import { AuthContext } from '../context/AuthContext'
 
-const Users: React.FC = () => {
+const Users: FC = () => {
     const [users, setUsers] = useState<UserItem[]>([])
     const [stats, setStats] = useState<UserStats | null>(null)
     const [loading, setLoading] = useState(true)
@@ -15,10 +16,11 @@ const Users: React.FC = () => {
     const [search, setSearch] = useState('')
     const [roleFilter, setRoleFilter] = useState('')
     const [editUser, setEditUser] = useState<UserItem | null>(null)
-    const [editForm, setEditForm] = useState({ name: '', email: '', role: '' })
+    const [editForm, setEditForm] = useState({ name: '', email: '', role: '', branch_id: '' as string | null })
     const [editError, setEditError] = useState('')
+    const [branches, setBranches] = useState<Branch[]>([])
     const [editLoading, setEditLoading] = useState(false);
-    const { isSuperAdmin } = useContext(AuthContext);
+    const { user: currentUser, isSuperAdmin } = useContext(AuthContext);
 
     const fetchStats = async () => {
         try {
@@ -26,6 +28,14 @@ const Users: React.FC = () => {
             setStats(res.data.data)
         } catch { }
     }
+
+    const fetchBranches = useCallback(async () => {
+        if (!isSuperAdmin) return
+        try {
+            const res = await api.get('/branches')
+            setBranches(res.data.data || res.data)
+        } catch { }
+    }, [isSuperAdmin])
 
     const fetchUsers = useCallback(async () => {
         setLoading(true)
@@ -51,7 +61,8 @@ const Users: React.FC = () => {
     useEffect(() => {
         fetchStats()
         fetchUsers()
-    }, [fetchUsers])
+        fetchBranches()
+    }, [fetchUsers, fetchBranches])
 
     const handleToggle = async (id: number) => {
         try {
@@ -65,7 +76,7 @@ const Users: React.FC = () => {
 
     const handleEditOpen = (user: UserItem) => {
         setEditUser(user)
-        setEditForm({ name: user.name, email: user.email, role: user.role })
+        setEditForm({ name: user.name, email: user.email, role: user.role, branch_id: user.branch_id?.toString() || '' })
         setEditError('')
     }
 
@@ -73,7 +84,11 @@ const Users: React.FC = () => {
         if (!editUser) return
         setEditLoading(true)
         try {
-            await api.put(`/users/${editUser.id}`, editForm)
+            const payload = {
+                ...editForm,
+                branch_id: editForm.branch_id ? Number(editForm.branch_id) : null
+            }
+            await api.put(`/users/${editUser.id}`, payload)
             setEditUser(null)
             fetchUsers()
         } catch (err: any) {
@@ -143,6 +158,7 @@ const Users: React.FC = () => {
                                     <th style={styles.th}>Nombre</th>
                                     <th style={styles.th}>Email</th>
                                     <th style={styles.th}>Rol</th>
+                                    <th style={styles.th}>Sucursal</th>
                                     <th style={styles.th}>Estado</th>
                                     <th style={styles.th}>Creado</th>
                                     <th style={styles.th}>Acciones</th>
@@ -168,6 +184,11 @@ const Users: React.FC = () => {
                                                     color: user.role === 'admin' ? '#7c3aed' : user.role === 'super_admin' ? '#e11d48' : '#059669'
                                                 }}>
                                                     {user.role === 'admin' ? 'Admin' : user.role === 'super_admin' ? 'Super Admin' : 'Empleado'}
+                                                </span>
+                                            </td>
+                                            <td style={styles.td}>
+                                                <span style={{ color: '#475569', fontSize: '0.85rem' }}>
+                                                    {user.branch_name || 'Ninguna'}
                                                 </span>
                                             </td>
                                             <td style={styles.td}>
@@ -262,16 +283,37 @@ const Users: React.FC = () => {
                             </div>
                             <div className="form-group">
                                 <label>Rol</label>
-                                <select
-                                    value={editForm.role}
-                                    onChange={e => setEditForm({ ...editForm, role: e.target.value })}
-                                    style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#0f172a', backgroundColor: '#fff' }}
-                                >
-                                     <option value="admin">Admin</option>
-                                     <option value="super_admin">Super Admin</option>
-                                     <option value="employee">Empleado</option>
-                                </select>
+                                {editUser && currentUser && editUser.id === currentUser.id ? (
+                                    <div style={{ padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#94a3b8', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                        No puedes cambiar tu propio rol
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={editForm.role}
+                                        onChange={e => setEditForm({ ...editForm, role: e.target.value })}
+                                        style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#0f172a', backgroundColor: '#fff' }}
+                                    >
+                                        <option value="admin">Admin</option>
+                                        <option value="employee">Empleado</option>
+                                    </select>
+                                )}
                             </div>
+                            {isSuperAdmin && (
+                                <div className="form-group" style={{ marginTop: '1rem' }}>
+                                    <label>Sucursal (Solo Super Admin)</label>
+                                    <select
+                                        value={editForm.branch_id || ''}
+                                        onChange={e => setEditForm({ ...editForm, branch_id: e.target.value })}
+                                        style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#0f172a', backgroundColor: '#fff' }}
+                                    >
+                                        <option value="">Ninguna</option>
+                                        {branches.map(b => (
+                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                             {editError && <p className="error-msg">{editError}</p>}
                             <div style={styles.modalActions}>
                                 <button

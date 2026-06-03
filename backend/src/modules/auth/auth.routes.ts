@@ -9,6 +9,7 @@ const router = Router()
 const controller = new AuthController()
 
 
+router.post('/register', authLimiter, validate(createUserSchema), controller.register)
 router.post('/login', authLimiter, validate(loginSchema), controller.login)
 router.get('/me', authenticate, controller.me)
 

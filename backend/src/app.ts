@@ -11,6 +11,7 @@ import productRoutes from './modules/products/product.routes'
 import userRoutes from './modules/users/user.routes'
 import movementRoutes from './modules/movements/movement.routes'
 import statsRoutes from './modules/stats/stats.routes'
+import branchRoutes from './modules/branches/branch.routes'
 
 const app = express()
 
@@ -55,6 +56,7 @@ app.use('/api/products', productRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/movements', movementRoutes)
 app.use('/api/stats', statsRoutes)
+app.use('/api/branches', branchRoutes)
 
 // ─── Health check ───
 app.get('/api/health', (req, res) => {

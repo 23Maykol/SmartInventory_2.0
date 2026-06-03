@@ -34,7 +34,22 @@ export class AuthService {
         logger.info(`✅ Initial super_admin created: ${adminEmail}`)
     }
 
-    // Public registration removed – users are created via admin endpoints
+    // Public registration – role is forced to 'employee', cannot self-assign admin
+    async register(data: CreateUserInput) {
+        const existing = await this.userService.findByEmail(data.email)
+        if (existing) throw new AppError(409, 'Ya existe una cuenta con ese correo')
+
+        const user = await this.userService.create({
+            name: data.name,
+            email: data.email,
+            password: data.password,
+            role: 'employee',  // always employee on public register
+        })
+
+        logger.info(`✅ Nuevo usuario registrado: ${data.email}`)
+        return { id: user?.id, name: user?.name, email: user?.email, role: user?.role }
+    }
+
     // async register(...) { ... }
 
     async login(data: LoginInput) {

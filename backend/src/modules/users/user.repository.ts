@@ -26,14 +26,16 @@ export class UserRepository {
         dataValues.push(limit, offset)
 
         const [countRows] = await pool.query<any[]>(
-            `SELECT COUNT(*) as total FROM users ${whereClause}`,
+            `SELECT COUNT(*) as total FROM users u ${whereClause.replace(/name LIKE/g, 'u.name LIKE').replace(/email LIKE/g, 'u.email LIKE').replace(/role =/g, 'u.role =')}`,
             countValues
         )
 
         const [rows] = await pool.query<any[]>(
-            `SELECT id, name, email, role, is_active, created_at 
-       FROM users ${whereClause} 
-       ORDER BY created_at DESC 
+            `SELECT u.id, u.name, u.email, u.role, u.is_active, u.created_at, u.branch_id, b.name as branch_name
+       FROM users u
+       LEFT JOIN branches b ON u.branch_id = b.id
+       ${whereClause.replace(/name LIKE/g, 'u.name LIKE').replace(/email LIKE/g, 'u.email LIKE').replace(/role =/g, 'u.role =')} 
+       ORDER BY u.created_at DESC 
        LIMIT ? OFFSET ?`,
             dataValues
         )
@@ -43,7 +45,10 @@ export class UserRepository {
 
     async findById(id: number): Promise<Omit<User, 'password'> | null> {
         const [rows] = await pool.execute<any[]>(
-            'SELECT id, name, email, role, is_active, created_at FROM users WHERE id = ? LIMIT 1',
+            `SELECT u.id, u.name, u.email, u.role, u.is_active, u.created_at, u.branch_id, b.name as branch_name 
+             FROM users u
+             LEFT JOIN branches b ON u.branch_id = b.id
+             WHERE u.id = ? LIMIT 1`,
             [id]
         )
         return rows[0] || null

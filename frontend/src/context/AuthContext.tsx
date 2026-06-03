@@ -9,8 +9,9 @@ interface AuthContextType {
     login: (token: string, user: User) => void
     logout: () => void
     isAuthenticated: boolean
-    isAdmin: boolean,
+    isAdmin: boolean
     isSuperAdmin: boolean
+    isInitializing: boolean
 }
 
 export const AuthContext = createContext<AuthContextType>({} as AuthContextType)
@@ -18,6 +19,7 @@ export const AuthContext = createContext<AuthContextType>({} as AuthContextType)
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null)
     const [token, setToken] = useState<string | null>(null)
+    const [isInitializing, setIsInitializing] = useState(true)
 
     useEffect(() => {
         const storedToken = localStorage.getItem('token')
@@ -26,6 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setToken(storedToken)
             setUser(JSON.parse(storedUser))
         }
+        setIsInitializing(false)
     }, [])
 
     const login = (token: string, user: User) => {
@@ -50,7 +53,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             logout,
             isAuthenticated: !!token,
             isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
-            isSuperAdmin: user?.role === 'super_admin'
+            isSuperAdmin: user?.role === 'super_admin',
+            isInitializing
         }}>
             {children}
         </AuthContext.Provider>

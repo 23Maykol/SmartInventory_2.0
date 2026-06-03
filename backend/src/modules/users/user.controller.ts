@@ -45,7 +45,12 @@ export class UserController {
             if (req.user?.role !== 'super_admin' && payload.role) {
                 delete payload.role;
             }
-            const user = await this.service.update(Number(req.params.id), payload);
+            // Pass requesterId so service can block self-role changes
+            const user = await this.service.update(
+                Number(req.params.id),
+                payload,
+                req.user!.id
+            );
             res.status(200).json({
                 ok: true,
                 message: 'Usuario actualizado exitosamente',

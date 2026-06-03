@@ -23,9 +23,19 @@ export class UserService {
         return user
     }
 
-    async update(id: number, data: UpdateUserInput) {
+    async update(id: number, data: UpdateUserInput, requesterId?: number) {
         const user = await this.repository.findById(id)
         if (!user) throw new AppError(404, 'Usuario no encontrado')
+
+        // Prevent any user from changing their own role
+        if (requesterId !== undefined && id === requesterId && data.role !== undefined) {
+            throw new AppError(400, 'No puedes cambiar tu propio rol')
+        }
+
+        // Prevent assigning super_admin role via normal update
+        if (data.role === 'super_admin') {
+            throw new AppError(400, 'No se puede asignar el rol de super_admin')
+        }
 
         await this.repository.update(id, data)
         const updated = await this.repository.findById(id)

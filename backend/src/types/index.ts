@@ -5,6 +5,8 @@ export interface User {
     password: string
     role: 'super_admin' | 'admin' | 'employee'
     is_active: boolean
+    branch_id?: number | null
+    branch_name?: string | null
     created_at: Date
 }
 

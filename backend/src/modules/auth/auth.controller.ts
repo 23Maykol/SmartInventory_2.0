@@ -10,6 +10,19 @@ export class AuthController {
 
 // Public registration endpoint removed – user creation is handled via admin routes
 
+    register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const user = await this.service.register(req.body)
+            res.status(201).json({
+                ok: true,
+                message: 'Usuario registrado exitosamente',
+                data: user
+            })
+        } catch (error) {
+            next(error)
+        }
+    }
+
 
     login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {

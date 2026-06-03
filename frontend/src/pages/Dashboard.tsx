@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import type { FC } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
@@ -19,21 +20,32 @@ const icons = {
     report: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
 }
 
-const Dashboard: React.FC = () => {
-    const { user, isAdmin } = useAuth()
+const Dashboard: FC = () => {
+    const { user, isAdmin, isSuperAdmin } = useAuth()
+    const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
 
+    const activeTab = searchParams.get('tab') || 'global'
+
+    // Super admin has their own dedicated dashboard
     useEffect(() => {
-        if (isAdmin) {
+        if (isSuperAdmin) {
+            navigate('/super-dashboard', { replace: true })
+        }
+    }, [isSuperAdmin, navigate])
+
+    useEffect(() => {
+        if (isAdmin && !isSuperAdmin) {
             api.get('/stats/dashboard')
                 .then(res => setStats(res.data.data))
                 .catch(() => { })
                 .finally(() => setLoading(false))
-        } else {
+        } else if (!isSuperAdmin) {
             setLoading(false)
         }
-    }, [isAdmin])
+    }, [isAdmin, isSuperAdmin])
 
     return (
         <div className="page-container">
@@ -54,7 +66,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Stats para admin */}
-                {isAdmin && !loading && stats && (
+                {isAdmin && !loading && stats && activeTab === 'global' && (
                     <>
                         {/* Métricas principales */}
                         <div style={styles.statsGrid}>
@@ -77,7 +89,11 @@ const Dashboard: React.FC = () => {
                                 </div>
                             ))}
                         </div>
+                    </>
+                )}
 
+                {isAdmin && !loading && stats && activeTab === 'charts' && (
+                    <>
                         <div style={styles.twoCol}>
                             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                                 <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
@@ -206,39 +222,8 @@ const Dashboard: React.FC = () => {
                     </>
                 )}
 
-                {/* Accesos rápidos */}
-                <div style={{ ...styles.grid, marginTop: '2rem' }}>
-                    <Link to="/products" style={styles.cardLink}>
-                        <div className="card" style={styles.quickCard}>
-                            <div style={{ ...styles.quickIcon, color: '#4f46e5', background: '#eef2ff' }}>{icons.products}</div>
-                            <h3 style={styles.quickTitle}>Productos</h3>
-                            <p style={styles.quickDesc}>Gestiona el inventario</p>
-                        </div>
-                    </Link>
-                    <Link to="/movements" style={styles.cardLink}>
-                        <div className="card" style={styles.quickCard}>
-                            <div style={{ ...styles.quickIcon, color: '#059669', background: '#ecfdf5' }}>{icons.sync}</div>
-                            <h3 style={styles.quickTitle}>Movimientos</h3>
-                            <p style={styles.quickDesc}>Entradas y salidas</p>
-                        </div>
-                    </Link>
-                    {isAdmin && (
-                        <Link to="/users" style={styles.cardLink}>
-                            <div className="card" style={styles.quickCard}>
-                                <div style={{ ...styles.quickIcon, color: '#7c3aed', background: '#f5f3ff' }}>{icons.users}</div>
-                                <h3 style={styles.quickTitle}>Usuarios</h3>
-                                <p style={styles.quickDesc}>Administra el equipo</p>
-                            </div>
-                        </Link>
-                    )}
-                    <Link to="/development" style={styles.cardLink}>
-                        <div className="card" style={styles.quickCard}>
-                            <div style={{ ...styles.quickIcon, color: '#d97706', background: '#fffbeb' }}>{icons.report}</div>
-                            <h3 style={styles.quickTitle}>Reportes</h3>
-                            <p style={styles.quickDesc}>Próximamente</p>
-                        </div>
-                    </Link>
-                </div>
+
+
             </div>
         </div>
     )
