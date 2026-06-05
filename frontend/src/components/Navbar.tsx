@@ -61,12 +61,8 @@ const Navbar = () => {
                         </Link>
                     </>
                 )}
-                {!isSuperAdmin && (
-                    <>
-                        <Link to="/products" style={getLinkStyle('/products')}>Productos</Link>
-                        <Link to="/movements" style={getLinkStyle('/movements')}>Movimientos</Link>
-                    </>
-                )}
+                <Link to="/products" style={getLinkStyle('/products')}>Productos</Link>
+                <Link to="/movements" style={getLinkStyle('/movements')}>Movimientos</Link>
                 {isAdmin && <Link to="/users" style={getLinkStyle('/users')}>Usuarios</Link>}
             </div>
 

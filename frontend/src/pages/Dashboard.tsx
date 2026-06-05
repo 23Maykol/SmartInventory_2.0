@@ -6,7 +6,7 @@ import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import NotFound from './NotFound';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
-import type { DashboardStats } from '../types';
+import type { DashboardStats, Product } from '../types';
 
 // SVGs helper
 const icons = {
@@ -28,6 +28,13 @@ const Dashboard: FC = () => {
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
 
+    // Form states for employee
+    const [products, setProducts] = useState<Product[]>([])
+    const [form, setForm] = useState({ product_id: '', type: 'entrada', quantity: '', note: '' })
+    const [formError, setFormError] = useState('')
+    const [successMsg, setSuccessMsg] = useState('')
+    const [formLoading, setFormLoading] = useState(false)
+
     const tabParam = searchParams.get('tab')
     const isInvalidTab = tabParam && !['global', 'charts'].includes(tabParam)
     const activeTab = tabParam || 'global'
@@ -45,10 +52,38 @@ const Dashboard: FC = () => {
                 .then(res => setStats(res.data.data))
                 .catch(() => { })
                 .finally(() => setLoading(false))
-        } else if (!isSuperAdmin) {
+        } else if (!isAdmin) {
+            // Employee view data
+            api.get('/products?limit=100')
+                .then(res => setProducts(res.data.data))
+                .catch(() => { })
+                .finally(() => setLoading(false))
+        } else {
             setLoading(false)
         }
     }, [isAdmin, isSuperAdmin])
+
+    const handleMovementSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setFormLoading(true)
+        setFormError('')
+        try {
+            await api.post('/movements', {
+                product_id: Number(form.product_id),
+                type: form.type,
+                quantity: Number(form.quantity),
+                note: form.note || null
+            })
+            setSuccessMsg(`Movimiento registrado exitosamente`)
+            setForm({ product_id: '', type: 'entrada', quantity: '', note: '' })
+            setTimeout(() => setSuccessMsg(''), 3000)
+            api.get('/products?limit=100').then(res => setProducts(res.data.data))
+        } catch (err: any) {
+            setFormError(err.response?.data?.message || 'Error al registrar movimiento')
+        } finally {
+            setFormLoading(false)
+        }
+    }
 
     if (isInvalidTab) {
         return <NotFound />
@@ -71,6 +106,97 @@ const Dashboard: FC = () => {
 
                     </p>
                 </div>
+
+                {/* Employee view: Quick movements */}
+                {!isAdmin && !loading && (
+                    <div className="card" style={{ maxWidth: '600px', margin: '0 auto', marginTop: '2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #f1f5f9' }}>
+                            <div style={{ ...styles.statIconWrapper, background: '#eef2ff', color: '#6366f1', marginBottom: 0 }}>
+                                {icons.sync}
+                            </div>
+                            <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>Registro Rápido de Movimientos</h3>
+                        </div>
+
+                        {successMsg && <div style={styles.successBanner}>{successMsg}</div>}
+                        {formError && <div style={{ ...styles.successBanner, background: '#fef2f2', color: '#dc2626', borderColor: '#fee2e2' }}>{formError}</div>}
+
+                        <form onSubmit={handleMovementSubmit}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                <div className="form-group">
+                                    <label style={styles.formLabel}>Producto</label>
+                                    <select
+                                        value={form.product_id}
+                                        onChange={e => setForm({ ...form, product_id: e.target.value })}
+                                        style={styles.formSelect}
+                                        required
+                                    >
+                                        <option value="">Selecciona el producto...</option>
+                                        {products.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name} (Stock actual: {p.stock})</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="form-group">
+                                        <label style={styles.formLabel}>Tipo de Movimiento</label>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setForm({ ...form, type: 'entrada' })}
+                                                style={{ ...styles.typeBtn, background: form.type === 'entrada' ? '#d1fae5' : '#f8fafc', color: form.type === 'entrada' ? '#047857' : '#64748b', borderColor: form.type === 'entrada' ? '#10b981' : '#e2e8f0' }}
+                                            >
+                                                + Entrada
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setForm({ ...form, type: 'salida' })}
+                                                style={{ ...styles.typeBtn, background: form.type === 'salida' ? '#fee2e2' : '#f8fafc', color: form.type === 'salida' ? '#be123c' : '#64748b', borderColor: form.type === 'salida' ? '#ef4444' : '#e2e8f0' }}
+                                            >
+                                                - Salida
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label style={styles.formLabel}>Cantidad</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={form.quantity}
+                                            onChange={e => setForm({ ...form, quantity: e.target.value })}
+                                            required
+                                            style={styles.formSelect}
+                                            placeholder="Ej. 10"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label style={styles.formLabel}>Nota (Opcional)</label>
+                                    <input
+                                        type="text"
+                                        value={form.note}
+                                        onChange={e => setForm({ ...form, note: e.target.value })}
+                                        style={styles.formSelect}
+                                        placeholder="Motivo del movimiento..."
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={formLoading || loading}
+                                style={{
+                                    width: '100%', padding: '0.8rem', marginTop: '1.5rem', borderRadius: '10px',
+                                    background: formLoading ? '#94a3b8' : '#6366f1', color: 'white', fontWeight: 700,
+                                    border: 'none', cursor: formLoading ? 'not-allowed' : 'pointer', transition: 'background 0.2s ease'
+                                }}
+                            >
+                                {formLoading ? 'Procesando...' : 'Confirmar Movimiento'}
+                            </button>
+                        </form>
+                    </div>
+                )}
 
                 {/* Stats para admin */}
                 {isAdmin && !loading && stats && activeTab === 'global' && (
@@ -344,7 +470,11 @@ const styles: Record<string, React.CSSProperties> = {
         transition: 'transform 0.2s ease'
     },
     quickTitle: { color: '#0f172a', marginBottom: '0.4rem', fontSize: '1.1rem', fontWeight: 600 },
-    quickDesc: { color: '#64748b', fontSize: '0.85rem' }
+    quickDesc: { color: '#64748b', fontSize: '0.85rem' },
+    successBanner: { background: '#ecfdf5', color: '#047857', padding: '0.8rem 1.2rem', borderRadius: '10px', marginBottom: '1.5rem', fontWeight: 500, border: '1px solid #d1fae5' },
+    formSelect: { width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#0f172a', backgroundColor: '#fff' },
+    typeBtn: { flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1.5px solid', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease' },
+    formLabel: { fontSize: '0.9rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem', display: 'block' }
 }
 
 export default Dashboard;

@@ -153,16 +153,16 @@ export class StatsRepository {
                 b.name,
                 b.address,
                 b.is_active,
-                u.name as admin_name,
-                u.email as admin_email,
+                (SELECT name FROM users WHERE branch_id = b.id AND role = 'admin' AND is_active = 1 LIMIT 1) as admin_name,
+                (SELECT email FROM users WHERE branch_id = b.id AND role = 'admin' AND is_active = 1 LIMIT 1) as admin_email,
                 COUNT(DISTINCT m.id) as total_movements,
                 COALESCE(SUM(CASE WHEN m.type = 'entrada' THEN m.quantity ELSE 0 END), 0) as total_entradas,
                 COALESCE(SUM(CASE WHEN m.type = 'salida' THEN m.quantity ELSE 0 END), 0) as total_salidas,
                 (SELECT COUNT(*) FROM users u2 WHERE u2.branch_id = b.id AND u2.is_active = 1) as active_users
             FROM branches b
-            LEFT JOIN users u ON u.branch_id = b.id AND u.role = 'admin' AND u.is_active = 1
-            LEFT JOIN inventory_movements m ON m.user_id = u.id
-            GROUP BY b.id, b.name, b.address, b.is_active, u.name, u.email
+            LEFT JOIN users u_all ON u_all.branch_id = b.id
+            LEFT JOIN inventory_movements m ON m.user_id = u_all.id
+            GROUP BY b.id, b.name, b.address, b.is_active
             ORDER BY total_movements DESC
         `)
 
