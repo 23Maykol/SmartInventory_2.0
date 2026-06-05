@@ -3,6 +3,7 @@ import type { FC, CSSProperties } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import Navbar from '../components/Navbar';
+import NotFound from './NotFound';
 import type { SuperAdminStats, BranchStat } from '../types';
 import {
     BarChart, Bar, PieChart, Pie, Cell,
@@ -155,6 +156,8 @@ const SuperAdminDashboard: FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     
     const tabParam = searchParams.get('tab');
+    const validTabs = ['global', 'branches', 'charts'];
+    const isInvalidTab = tabParam && !validTabs.includes(tabParam);
     const activeTab = tabParam === 'branches' ? 'branches' : tabParam === 'charts' ? 'charts' : 'global';
 
     const setActiveTab = (tab: 'global' | 'branches') => {
@@ -175,6 +178,10 @@ const SuperAdminDashboard: FC = () => {
     };
 
     const selectedBranchData = stats?.branchStats.find(b => b.id === selectedBranch);
+
+    if (isInvalidTab) {
+        return <NotFound />;
+    }
 
     if (loading) {
         return (

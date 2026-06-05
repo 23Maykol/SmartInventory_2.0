@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
+import NotFound from './NotFound';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 import type { DashboardStats } from '../types';
 
@@ -27,7 +28,9 @@ const Dashboard: FC = () => {
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
 
-    const activeTab = searchParams.get('tab') || 'global'
+    const tabParam = searchParams.get('tab')
+    const isInvalidTab = tabParam && !['global', 'charts'].includes(tabParam)
+    const activeTab = tabParam || 'global'
 
     // Super admin has their own dedicated dashboard
     useEffect(() => {
@@ -46,6 +49,10 @@ const Dashboard: FC = () => {
             setLoading(false)
         }
     }, [isAdmin, isSuperAdmin])
+
+    if (isInvalidTab) {
+        return <NotFound />
+    }
 
     return (
         <div className="page-container">
