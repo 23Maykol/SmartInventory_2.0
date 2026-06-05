@@ -46,6 +46,12 @@ const Movements = () => {
         api.get('/products?limit=100').then(res => setProducts(res.data.data))
     }, [fetchMovements])
 
+    // Auto-refresh every 30 seconds
+    useEffect(() => {
+        const interval = setInterval(fetchMovements, 30_000)
+        return () => clearInterval(interval)
+    }, [fetchMovements])
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setFormLoading(true)

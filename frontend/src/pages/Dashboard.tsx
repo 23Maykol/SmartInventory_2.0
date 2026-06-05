@@ -27,6 +27,7 @@ const Dashboard: FC = () => {
     const [searchParams] = useSearchParams()
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
     // Form states for employee
     const [products, setProducts] = useState<Product[]>([])
@@ -46,21 +47,33 @@ const Dashboard: FC = () => {
         }
     }, [isSuperAdmin, navigate])
 
-    useEffect(() => {
+    const fetchData = () => {
         if (isAdmin && !isSuperAdmin) {
             api.get('/stats/dashboard')
-                .then(res => setStats(res.data.data))
-                .catch(() => { })
+                .then(res => {
+                    setStats(res.data.data)
+                    setLastUpdated(new Date())
+                })
+                .catch(() => {})
                 .finally(() => setLoading(false))
         } else if (!isAdmin) {
-            // Employee view data
             api.get('/products?limit=100')
-                .then(res => setProducts(res.data.data))
-                .catch(() => { })
+                .then(res => {
+                    setProducts(res.data.data)
+                    setLastUpdated(new Date())
+                })
+                .catch(() => {})
                 .finally(() => setLoading(false))
         } else {
             setLoading(false)
         }
+    }
+
+    useEffect(() => {
+        if (isSuperAdmin) return
+        fetchData()
+        const interval = setInterval(fetchData, 30_000)
+        return () => clearInterval(interval)
     }, [isAdmin, isSuperAdmin])
 
     const handleMovementSubmit = async (e: React.FormEvent) => {
@@ -77,7 +90,8 @@ const Dashboard: FC = () => {
             setSuccessMsg(`Movimiento registrado exitosamente`)
             setForm({ product_id: '', type: 'entrada', quantity: '', note: '' })
             setTimeout(() => setSuccessMsg(''), 3000)
-            api.get('/products?limit=100').then(res => setProducts(res.data.data))
+            // Refresh products stock immediately after movement
+            fetchData()
         } catch (err: any) {
             setFormError(err.response?.data?.message || 'Error al registrar movimiento')
         } finally {
@@ -94,17 +108,36 @@ const Dashboard: FC = () => {
             <Navbar />
             <div className="main-content">
                 <div style={styles.welcome}>
-                    <h1 style={styles.title}>Bienvenido, {user?.name}</h1>
-                    <p style={styles.subtitle}>
-                        Rol: <strong style={{ color: '#0f172a' }}>{user?.role === 'admin'
-                            ? 'Administrador'
-                            : user?.role === 'super_admin'
-                                ? 'Super Admin'
-                                : 'Empleado'
-                        }
-                        </strong>
-
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                            <h1 style={styles.title}>Bienvenido, {user?.name}</h1>
+                            <p style={styles.subtitle}>
+                                Rol: <strong style={{ color: '#0f172a' }}>{user?.role === 'admin'
+                                    ? 'Administrador'
+                                    : user?.role === 'super_admin'
+                                        ? 'Super Admin'
+                                        : 'Empleado'
+                                }
+                                </strong>
+                            </p>
+                            {lastUpdated && (
+                                <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px' }}>
+                                    Actualizado: {lastUpdated.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                    &nbsp;·&nbsp;
+                                    <button
+                                        onClick={fetchData}
+                                        style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                                    >
+                                        ↻ Actualizar ahora
+                                    </button>
+                                </p>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', padding: '7px 16px', borderRadius: '50px', fontWeight: 700, fontSize: '0.8rem', boxShadow: '0 4px 12px rgba(99,102,241,0.3)', whiteSpace: 'nowrap' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a5f3fc', display: 'inline-block' }} />
+                            En vivo · 30s
+                        </div>
+                    </div>
                 </div>
 
                 {/* Employee view: Quick movements */}

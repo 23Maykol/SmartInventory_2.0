@@ -110,9 +110,9 @@ export class StatsRepository {
             SELECT 
                 DATE_FORMAT(created_at, '%Y-%m-%d') as date,
                 DATE_FORMAT(created_at, '%d %b') as label,
-                COUNT(*) as total,
-                SUM(CASE WHEN type = 'entrada' THEN quantity ELSE 0 END) as entradas,
-                SUM(CASE WHEN type = 'salida' THEN quantity ELSE 0 END) as salidas
+                CAST(COUNT(*) AS UNSIGNED) as total,
+                CAST(SUM(CASE WHEN type = 'entrada' THEN quantity ELSE 0 END) AS UNSIGNED) as entradas,
+                CAST(SUM(CASE WHEN type = 'salida' THEN quantity ELSE 0 END) AS UNSIGNED) as salidas
             FROM inventory_movements
             WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d'), DATE_FORMAT(created_at, '%d %b')
@@ -155,9 +155,9 @@ export class StatsRepository {
                 b.is_active,
                 (SELECT name FROM users WHERE branch_id = b.id AND role = 'admin' AND is_active = 1 LIMIT 1) as admin_name,
                 (SELECT email FROM users WHERE branch_id = b.id AND role = 'admin' AND is_active = 1 LIMIT 1) as admin_email,
-                COUNT(DISTINCT m.id) as total_movements,
-                COALESCE(SUM(CASE WHEN m.type = 'entrada' THEN m.quantity ELSE 0 END), 0) as total_entradas,
-                COALESCE(SUM(CASE WHEN m.type = 'salida' THEN m.quantity ELSE 0 END), 0) as total_salidas,
+                CAST(COUNT(DISTINCT m.id) AS UNSIGNED) as total_movements,
+                CAST(COALESCE(SUM(CASE WHEN m.type = 'entrada' THEN m.quantity ELSE 0 END), 0) AS UNSIGNED) as total_entradas,
+                CAST(COALESCE(SUM(CASE WHEN m.type = 'salida' THEN m.quantity ELSE 0 END), 0) AS UNSIGNED) as total_salidas,
                 (SELECT COUNT(*) FROM users u2 WHERE u2.branch_id = b.id AND u2.is_active = 1) as active_users
             FROM branches b
             LEFT JOIN users u_all ON u_all.branch_id = b.id

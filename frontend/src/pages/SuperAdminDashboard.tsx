@@ -149,9 +149,12 @@ const BranchCard: FC<BranchCardProps> = ({ branch, onSelect, selected }) => (
 );
 
 // ─── Main Component ──────────────────────────────────────────
+const POLL_INTERVAL = 30_000; // 30 seconds
+
 const SuperAdminDashboard: FC = () => {
     const [stats, setStats] = useState<SuperAdminStats | null>(null);
     const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [selectedBranch, setSelectedBranch] = useState<number | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
     
@@ -165,11 +168,20 @@ const SuperAdminDashboard: FC = () => {
         if (tab === 'global') setSelectedBranch(null);
     };
 
-    useEffect(() => {
+    const fetchStats = () => {
         api.get('/stats/super-dashboard')
-            .then(res => setStats(res.data.data))
+            .then(res => {
+                setStats(res.data.data);
+                setLastUpdated(new Date());
+            })
             .catch(() => {})
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchStats();
+        const interval = setInterval(fetchStats, POLL_INTERVAL);
+        return () => clearInterval(interval);
     }, []);
 
     const handleBranchSelect = (id: number) => {
@@ -209,10 +221,22 @@ const SuperAdminDashboard: FC = () => {
                         <p style={styles.subtitle}>
                             Vista global del sistema · {new Date().toLocaleDateString('es', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </p>
+                        {lastUpdated && (
+                            <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px' }}>
+                                Actualizado: {lastUpdated.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                &nbsp;·&nbsp;
+                                <button
+                                    onClick={fetchStats}
+                                    style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                                >
+                                    ↻ Actualizar ahora
+                                </button>
+                            </p>
+                        )}
                     </div>
                     <div style={styles.superBadge}>
                         <div style={styles.superBadgeDot} />
-                        Super Admin
+                        En vivo · 30s
                     </div>
                 </div>
 
@@ -295,7 +319,7 @@ const SuperAdminDashboard: FC = () => {
                                 </div>
                                 {stats.monthlyMovements.length > 0 ? (
                                     <ResponsiveContainer width="100%" height={240}>
-                                        <AreaChart data={stats.monthlyMovements} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                        <AreaChart data={stats.monthlyMovements.map(m => ({ ...m, entradas: Number(m.entradas), salidas: Number(m.salidas) }))} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
                                                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
