@@ -12,7 +12,7 @@ export class MovementController {
     getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
             const params = listMovementsSchema.parse(req.query)
-            const result = await this.service.getAll(params)
+            const result = await this.service.getAll(params, req.user!)
             res.status(200).json({ ok: true, ...result })
         } catch (error) {
             next(error)

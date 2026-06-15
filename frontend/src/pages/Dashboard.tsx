@@ -5,7 +5,6 @@ import api from '../api/axios';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import NotFound from './NotFound';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 import type { DashboardStats, Product } from '../types';
 
 // SVGs helper
@@ -31,13 +30,13 @@ const Dashboard: FC = () => {
 
     // Form states for employee
     const [products, setProducts] = useState<Product[]>([])
-    const [form, setForm] = useState({ product_id: '', type: 'entrada', quantity: '', note: '' })
+    const [form, setForm] = useState({ product_id: '', type: 'entrada', quantity: '', note: '', serial_code: '' })
     const [formError, setFormError] = useState('')
     const [successMsg, setSuccessMsg] = useState('')
     const [formLoading, setFormLoading] = useState(false)
 
     const tabParam = searchParams.get('tab')
-    const isInvalidTab = tabParam && !['global', 'charts'].includes(tabParam)
+    const isInvalidTab = tabParam && !['global'].includes(tabParam)
     const activeTab = tabParam || 'global'
 
     // Super admin has their own dedicated dashboard
@@ -85,10 +84,11 @@ const Dashboard: FC = () => {
                 product_id: Number(form.product_id),
                 type: form.type,
                 quantity: Number(form.quantity),
-                note: form.note || null
+                note: form.note || null,
+                serial_code: form.serial_code || undefined
             })
             setSuccessMsg(`Movimiento registrado exitosamente`)
-            setForm({ product_id: '', type: 'entrada', quantity: '', note: '' })
+            setForm({ product_id: '', type: 'entrada', quantity: '', note: '', serial_code: '' })
             setTimeout(() => setSuccessMsg(''), 3000)
             // Refresh products stock immediately after movement
             fetchData()
@@ -214,6 +214,38 @@ const Dashboard: FC = () => {
                                         placeholder="Motivo del movimiento..."
                                     />
                                 </div>
+
+                                {products.find(p => p.id === Number(form.product_id))?.traceable && (
+                                    <div className="form-group">
+                                        <label style={styles.formLabel}>Código de Serie / Barras</label>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <input
+                                                type="text"
+                                                value={form.serial_code}
+                                                onChange={e => setForm({ ...form, serial_code: e.target.value })}
+                                                style={{ ...styles.formSelect, borderColor: '#6366f1', flex: 1 }}
+                                                placeholder="Ej. SN-AUR-202"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const prodName = products.find(p => p.id === Number(form.product_id))?.name || 'PRD';
+                                                    const prefix = prodName.replace(/[^A-Za-z0-9]/g, '').substring(0, 3).toUpperCase();
+                                                    const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+                                                    setForm({ ...form, serial_code: `${prefix}-${randomStr}` });
+                                                }}
+                                                style={{ padding: '0 1rem', background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
+                                                title="Generar código aleatorio automáticamente"
+                                            >
+                                                Generar
+                                            </button>
+                                        </div>
+                                        <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                                            Este producto requiere rastreo individual por unidad.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             <button
@@ -257,137 +289,6 @@ const Dashboard: FC = () => {
                         </div>
                     </>
                 )}
-
-                {isAdmin && !loading && stats && activeTab === 'charts' && (
-                    <>
-                        <div style={styles.twoCol}>
-                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={styles.cardTitle}>Movimientos</h3>
-                                </div>
-                                <div style={styles.chartContainer}>
-                                    <ResponsiveContainer width="100%" height={250}>
-                                        <BarChart
-                                            data={[
-                                                { name: 'Entradas', value: stats?.movements?.total_entradas ?? 0 },
-                                                { name: 'Salidas', value: stats?.movements?.total_salidas ?? 0 }
-                                            ]}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="name" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Bar dataKey="value" fill="#4f46e5" />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            {/* Stock bajo */}
-                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ color: '#d97706', display: 'flex' }}>{icons.warning}</span>
-                                    <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>
-                                        Productos con Stock Bajo
-                                    </h3>
-                                </div>
-{stats.lowStockProducts.length > 0 && (
-  <ResponsiveContainer width="100%" height={250}>
-    <BarChart data={stats.lowStockProducts.map(p => ({ name: p.name, stock: p.stock }))}>
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="name" />
-      <YAxis />
-      <Tooltip />
-      <Bar dataKey="stock" fill="#ef4444" />
-    </BarChart>
-  </ResponsiveContainer>
-)}
-
-                                {stats.lowStockProducts.length === 0 ? (
-                                    <p style={styles.empty}>No hay productos con stock bajo</p>
-                                ) : (
-                                    <table style={styles.table}>
-                                        <thead>
-                                            <tr style={styles.tableHead}>
-                                                <th style={styles.th}>Producto</th>
-                                                <th style={styles.th}>Categoría</th>
-                                                <th style={styles.th}>Stock</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {stats.lowStockProducts.map(p => (
-                                                <tr key={p.id} style={styles.tr}>
-                                                    <td style={styles.td}><strong>{p.name}</strong></td>
-                                                    <td style={styles.td}>
-                                                        <span style={{ ...styles.categoryBadge }}>
-                                                            {p.category || '—'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={styles.td}>
-                                                        <span style={{
-                                                            ...styles.badge,
-                                                            background: p.stock === 0 ? '#ffe4e6' : '#fef3c7',
-                                                            color: p.stock === 0 ? '#e11d48' : '#d97706'
-                                                        }}>
-                                                            {p.stock === 0 ? 'Agotado' : p.stock}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Top productos */}
-                        {stats && stats.topProducts.length > 0 && (
-                            <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>Top Productos más Movidos</h3>
-                                </div>
-<ResponsiveContainer width="100%" height={250}>
-  <BarChart data={stats.topProducts.map(p => ({ name: p.name, movimientos: p.total_movimientos }))}>
-    <CartesianGrid strokeDasharray="3 3" />
-    <XAxis dataKey="name" />
-    <YAxis />
-    <Tooltip />
-    <Bar dataKey="movimientos" fill="#4f46e5" />
-  </BarChart>
-</ResponsiveContainer>
-                                <table style={styles.table}>
-                                    <thead>
-                                        <tr style={styles.tableHead}>
-                                            <th style={styles.th}>#</th>
-                                            <th style={styles.th}>Producto</th>
-                                            <th style={styles.th}>Categoría</th>
-                                            <th style={styles.th}>Total Movimientos</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {stats.topProducts.map((p, i) => (
-                                            <tr key={p.id} style={styles.tr}>
-                                                <td style={styles.td}>
-                                                    <div style={styles.rankBadge}>{i + 1}</div>
-                                                </td>
-                                                <td style={styles.td}><strong>{p.name}</strong></td>
-                                                <td style={styles.td}>
-                                                    <span style={styles.categoryBadge}>{p.category || '—'}</span>
-                                                </td>
-                                                <td style={styles.td}>
-                                                    <span style={{ ...styles.badge, background: '#eef2ff', color: '#4f46e5' }}>
-                                                        {p.total_movimientos} movs
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </>
-                )}
-
 
 
             </div>

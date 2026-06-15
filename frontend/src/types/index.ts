@@ -12,6 +12,7 @@ export interface Product {
     price: number
     category: string | null
     description: string | null
+    traceable?: boolean
     is_active: boolean
     created_at: string
 }
@@ -120,6 +121,12 @@ export interface DashboardStats {
         category: string
         total_movimientos: number
     }[]
+    topProductsByCategory: {
+        id: number
+        name: string
+        category: string
+        total_movimientos: number
+    }[]
 }
 
 // ─── Branches ────────────────────────────────────────────────
@@ -150,8 +157,8 @@ export interface BranchStat {
 
 // ─── Super Admin Stats ────────────────────────────────────────
 
-export interface MonthlyMovement {
-    month: string
+export interface MovementPoint {
+    date: string
     label: string
     total: number
     entradas: number
@@ -196,7 +203,9 @@ export interface SuperAdminStats {
         total_branches: number
         active_branches: number
     }
-    monthlyMovements: MonthlyMovement[]
+    movementsDaily: MovementPoint[]
+    movementsWeekly: MovementPoint[]
+    movementsMonthly: MovementPoint[]
     stockByCategory: StockByCategory[]
     topProducts: TopProduct[]
     branchStats: BranchStat[]
