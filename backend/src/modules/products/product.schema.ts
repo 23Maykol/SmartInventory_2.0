@@ -25,7 +25,9 @@ export const createProductSchema = z.object({
         .max(500, 'La descripción no puede superar 500 caracteres')
         .trim()
         .optional()
-        .nullable()
+        .nullable(),
+
+    traceable: z.boolean().default(false)
 })
 
 export const updateProductSchema = createProductSchema.partial()

@@ -53,10 +53,10 @@ export class MovementRepository {
         return { data: rows, total: countRows[0].total }
     }
 
-    async create(data: CreateMovementInput, userId: number): Promise<number> {
+    async create(data: CreateMovementInput, userId: number, unitId: number | null = null): Promise<number> {
         const [result] = await pool.execute<any>(
-            'INSERT INTO inventory_movements (product_id, user_id, type, quantity, note) VALUES (?, ?, ?, ?, ?)',
-            [data.product_id, userId, data.type, data.quantity, data.note ?? null]
+            'INSERT INTO inventory_movements (product_id, user_id, type, quantity, note, unit_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [data.product_id, userId, data.type, data.quantity, data.note ?? null, unitId]
         )
         return result.insertId
     }

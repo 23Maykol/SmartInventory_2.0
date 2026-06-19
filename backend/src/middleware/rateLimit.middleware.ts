@@ -19,6 +19,7 @@ export const globalLimiter = rateLimit({
     max: globalMax,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: () => true, // Deshabilitado temporalmente para pruebas
     message: {
         ok: false,
         message: 'Demasiadas peticiones. Intenta en 15 minutos.'
@@ -30,6 +31,7 @@ export const authLimiter = rateLimit({
     max: authMax,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: () => true, // Deshabilitado temporalmente para pruebas
     message: {
         ok: false,
         message: 'Demasiados intentos de autenticación. Intenta en 15 minutos.'

@@ -8,6 +8,8 @@ interface Props {
     excludeSuperAdmin?: boolean
 }
 
+import NotFound from '../pages/NotFound'
+
 const PrivateRoute = ({ children, adminOnly = false, superAdminOnly = false, excludeSuperAdmin = false }: Props) => {
     const { isAuthenticated, isAdmin, isSuperAdmin, isInitializing } = useAuth()
 
@@ -17,13 +19,13 @@ const PrivateRoute = ({ children, adminOnly = false, superAdminOnly = false, exc
     if (!isAuthenticated) return <Navigate to="/login" replace />
 
     // Only super_admin can access superAdminOnly routes
-    if (superAdminOnly && !isSuperAdmin) return <Navigate to="/dashboard" replace />
+    if (superAdminOnly && !isSuperAdmin) return <NotFound />
 
     // Block super_admin from specific operational routes if requested
-    if (excludeSuperAdmin && isSuperAdmin) return <Navigate to="/super-dashboard" replace />
+    if (excludeSuperAdmin && isSuperAdmin) return <NotFound />
 
     // Only admin (includes super_admin) can access adminOnly routes
-    if (adminOnly && !isAdmin) return <Navigate to="/dashboard" replace />
+    if (adminOnly && !isAdmin) return <NotFound />
 
     return <>{children}</>
 }

@@ -17,7 +17,16 @@ export interface Product {
     price: number
     category: string | null
     description: string | null
+    traceable: boolean  // true = requiere serial por unidad individual
     is_active: boolean
+    created_at: Date
+}
+
+export interface ProductUnit {
+    id: number
+    product_id: number
+    serial_code: string
+    status: 'en_stock' | 'despachado' | 'devuelto'
     created_at: Date
 }
 
@@ -25,6 +34,7 @@ export interface InventoryMovement {
     id: number
     product_id: number
     user_id: number
+    unit_id: number | null  // FK a product_units si el producto es traceable
     type: 'entrada' | 'salida'
     quantity: number
     note: string | null

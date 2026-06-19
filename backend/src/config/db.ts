@@ -8,9 +8,9 @@ export const pool = mysql.createPool({
     password: env.db.password,
     database: env.db.name,
     port: env.db.port,
-    connectionLimit: 150,
+    connectionLimit: 300,
     waitForConnections: true,
-    queueLimit: 500,
+    queueLimit: 5000, // Aumentado para las pruebas de carga (antes 500)
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
     timezone: '+00:00',

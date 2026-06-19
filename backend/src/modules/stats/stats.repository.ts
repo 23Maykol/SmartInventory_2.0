@@ -59,13 +59,29 @@ export class StatsRepository {
             LIMIT 5
         `)
 
+        const [topProductsByCategory] = await pool.query<any[]>(`
+            WITH RankedProducts AS (
+                SELECT 
+                    p.id, p.name, COALESCE(p.category, 'Sin categoría') as category,
+                    SUM(m.quantity) as total_movimientos,
+                    ROW_NUMBER() OVER(PARTITION BY COALESCE(p.category, 'Sin categoría') ORDER BY SUM(m.quantity) DESC) as rn
+                FROM inventory_movements m
+                JOIN products p ON m.product_id = p.id
+                GROUP BY p.id, p.name, COALESCE(p.category, 'Sin categoría')
+            )
+            SELECT id, name, category, total_movimientos 
+            FROM RankedProducts 
+            WHERE rn <= 3
+        `)
+
         return {
             products: products[0],
             users: users[0],
             movements: movements[0],
             recentMovements,
             lowStockProducts,
-            topProducts
+            topProducts,
+            topProductsByCategory
         }
     }
 
@@ -105,17 +121,45 @@ export class StatsRepository {
             FROM branches
         `)
 
-        // Daily movements — last 30 days
-        const [monthlyMovements] = await pool.query<any[]>(`
+        // Movements — last 14 days
+        const [movementsDaily] = await pool.query<any[]>(`
             SELECT 
                 DATE_FORMAT(created_at, '%Y-%m-%d') as date,
                 DATE_FORMAT(created_at, '%d %b') as label,
-                COUNT(*) as total,
-                SUM(CASE WHEN type = 'entrada' THEN quantity ELSE 0 END) as entradas,
-                SUM(CASE WHEN type = 'salida' THEN quantity ELSE 0 END) as salidas
+                CAST(COUNT(*) AS UNSIGNED) as total,
+                CAST(SUM(CASE WHEN type = 'entrada' THEN quantity ELSE 0 END) AS UNSIGNED) as entradas,
+                CAST(SUM(CASE WHEN type = 'salida' THEN quantity ELSE 0 END) AS UNSIGNED) as salidas
             FROM inventory_movements
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
             GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d'), DATE_FORMAT(created_at, '%d %b')
+            ORDER BY date ASC
+        `)
+
+        // Movements — last 12 weeks
+        const [movementsWeekly] = await pool.query<any[]>(`
+            SELECT 
+                CONCAT(YEAR(created_at), '-', LPAD(WEEK(created_at, 1), 2, '0')) as date,
+                CONCAT('Sem ', WEEK(created_at, 1)) as label,
+                CAST(COUNT(*) AS UNSIGNED) as total,
+                CAST(SUM(CASE WHEN type = 'entrada' THEN quantity ELSE 0 END) AS UNSIGNED) as entradas,
+                CAST(SUM(CASE WHEN type = 'salida' THEN quantity ELSE 0 END) AS UNSIGNED) as salidas
+            FROM inventory_movements
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK)
+            GROUP BY YEAR(created_at), WEEK(created_at, 1)
+            ORDER BY YEAR(created_at) ASC, WEEK(created_at, 1) ASC
+        `)
+
+        // Movements — last 6 months
+        const [movementsMonthly] = await pool.query<any[]>(`
+            SELECT 
+                DATE_FORMAT(created_at, '%Y-%m') as date,
+                DATE_FORMAT(created_at, '%b %y') as label,
+                CAST(COUNT(*) AS UNSIGNED) as total,
+                CAST(SUM(CASE WHEN type = 'entrada' THEN quantity ELSE 0 END) AS UNSIGNED) as entradas,
+                CAST(SUM(CASE WHEN type = 'salida' THEN quantity ELSE 0 END) AS UNSIGNED) as salidas
+            FROM inventory_movements
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+            GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b %y')
             ORDER BY date ASC
         `)
 
@@ -153,26 +197,25 @@ export class StatsRepository {
                 b.name,
                 b.address,
                 b.is_active,
-                u.name as admin_name,
-                u.email as admin_email,
-                COUNT(DISTINCT m.id) as total_movements,
-                COALESCE(SUM(CASE WHEN m.type = 'entrada' THEN m.quantity ELSE 0 END), 0) as total_entradas,
-                COALESCE(SUM(CASE WHEN m.type = 'salida' THEN m.quantity ELSE 0 END), 0) as total_salidas,
+                (SELECT name FROM users WHERE branch_id = b.id AND role = 'admin' AND is_active = 1 LIMIT 1) as admin_name,
+                (SELECT email FROM users WHERE branch_id = b.id AND role = 'admin' AND is_active = 1 LIMIT 1) as admin_email,
+                CAST(COUNT(DISTINCT m.id) AS UNSIGNED) as total_movements,
+                CAST(COALESCE(SUM(CASE WHEN m.type = 'entrada' THEN m.quantity ELSE 0 END), 0) AS UNSIGNED) as total_entradas,
+                CAST(COALESCE(SUM(CASE WHEN m.type = 'salida' THEN m.quantity ELSE 0 END), 0) AS UNSIGNED) as total_salidas,
                 (SELECT COUNT(*) FROM users u2 WHERE u2.branch_id = b.id AND u2.is_active = 1) as active_users
             FROM branches b
-            LEFT JOIN users u ON u.branch_id = b.id AND u.role = 'admin' AND u.is_active = 1
-            LEFT JOIN inventory_movements m ON m.user_id = u.id
-            GROUP BY b.id, b.name, b.address, b.is_active, u.name, u.email
+            LEFT JOIN users u_all ON u_all.branch_id = b.id
+            LEFT JOIN inventory_movements m ON m.user_id = u_all.id
+            GROUP BY b.id, b.name, b.address, b.is_active
             ORDER BY total_movements DESC
         `)
 
-        // Low stock products
+        // Low stock products — all of them, frontend will filter by category
         const [lowStockProducts] = await pool.query<any[]>(`
-            SELECT id, name, stock, category
+            SELECT id, name, stock, COALESCE(category, 'Sin categoría') as category
             FROM products
             WHERE stock <= 5 AND is_active = 1
             ORDER BY stock ASC
-            LIMIT 10
         `)
 
         return {
@@ -180,7 +223,9 @@ export class StatsRepository {
             users: users[0],
             movements: movements[0],
             branches: branches[0],
-            monthlyMovements,
+            movementsDaily,
+            movementsWeekly,
+            movementsMonthly,
             stockByCategory,
             topProducts,
             branchStats,

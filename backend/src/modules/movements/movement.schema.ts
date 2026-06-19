@@ -6,7 +6,8 @@ export const createMovementSchema = z.object({
     quantity: z.number()
         .int('La cantidad debe ser un número entero')
         .positive('La cantidad debe ser mayor a 0'),
-    note: z.string().max(500).trim().optional().nullable()
+    note: z.string().max(500).trim().optional().nullable(),
+    serial_code: z.string().max(100).trim().optional().nullable()
 })
 
 export const listMovementsSchema = z.object({

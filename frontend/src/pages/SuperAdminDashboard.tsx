@@ -3,17 +3,18 @@ import type { FC, CSSProperties } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import Navbar from '../components/Navbar';
-import type { SuperAdminStats, BranchStat } from '../types';
+import NotFound from './NotFound';
+import type { SuperAdminStats, BranchStat, MovementPoint } from '../types';
 import {
     BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
-    Legend, Area, AreaChart
+    Legend
 } from 'recharts';
 
-// ─── Color palette ─────────────────────────────────────────
+// ─── Color palette ──────────────────────────────────────────
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
 
-// ─── SVG Icons ─────────────────────────────────────────────
+// ─── SVG Icons ──────────────────────────────────────────────
 const icons = {
     box:    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
     users:  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
@@ -23,6 +24,7 @@ const icons = {
     up:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
     down:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>,
     eye:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+    filter: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
 };
 
 // ─── Custom Tooltip ─────────────────────────────────────────
@@ -39,7 +41,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         </div>
     );
 };
-
 const tooltipStyle: CSSProperties = {
     background: 'rgba(255,255,255,0.96)',
     border: '1px solid #e2e8f0',
@@ -48,87 +49,57 @@ const tooltipStyle: CSSProperties = {
     boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
 };
 
-// ─── KPI Card ───────────────────────────────────────────────
+// ─── KPI Card ────────────────────────────────────────────────
 interface KpiProps {
     label: string; value: string | number; sub?: string;
     icon: React.ReactNode; color: string; bg: string; gradient: string;
+    large?: boolean;
 }
-const KpiCard: FC<KpiProps> = ({ label, value, sub, icon, color, bg, gradient }) => (
-    <div style={{ ...styles.kpiCard, background: gradient }}>
+const KpiCard: FC<KpiProps> = ({ label, value, sub, icon, color, bg, gradient, large }) => (
+    <div style={{ ...styles.kpiCard, background: gradient, gridColumn: large ? 'span 2' : undefined }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-                <div style={{ ...styles.kpiValue, color }}>{value}</div>
+                <div style={{ ...styles.kpiValue, color, fontSize: large ? '3rem' : '2.2rem' }}>{value}</div>
                 <div style={styles.kpiLabel}>{label}</div>
                 {sub && <div style={styles.kpiSub}>{sub}</div>}
             </div>
-            <div style={{ ...styles.kpiIcon, color, background: bg }}>{icon}</div>
+            <div style={{ ...styles.kpiIcon, color, background: bg, width: large ? '60px' : '48px', height: large ? '60px' : '48px' }}>{icon}</div>
         </div>
     </div>
 );
 
 // ─── Branch Card ─────────────────────────────────────────────
-interface BranchCardProps {
-    branch: BranchStat;
-    onSelect: (id: number) => void;
-    selected: boolean;
-}
+interface BranchCardProps { branch: BranchStat; onSelect: (id: number) => void; selected: boolean; }
 const BranchCard: FC<BranchCardProps> = ({ branch, onSelect, selected }) => (
     <div
-        style={{
-            ...styles.branchCard,
-            border: selected ? '2px solid #6366f1' : '1px solid #e2e8f0',
-            boxShadow: selected ? '0 0 0 4px rgba(99,102,241,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
-        }}
+        style={{ ...styles.branchCard, border: selected ? '2px solid #6366f1' : '1px solid #e2e8f0', boxShadow: selected ? '0 0 0 4px rgba(99,102,241,0.12)' : '0 2px 8px rgba(0,0,0,0.04)' }}
         onClick={() => onSelect(branch.id)}
     >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ ...styles.branchIcon, background: branch.is_active ? '#eef2ff' : '#f1f5f9', color: branch.is_active ? '#6366f1' : '#94a3b8' }}>
-                    {icons.branch}
-                </div>
+                <div style={{ ...styles.branchIcon, background: branch.is_active ? '#eef2ff' : '#f1f5f9', color: branch.is_active ? '#6366f1' : '#94a3b8' }}>{icons.branch}</div>
                 <div>
                     <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>{branch.name}</div>
                     <div style={{ color: '#64748b', fontSize: '0.78rem' }}>{branch.address || 'Sin dirección'}</div>
                 </div>
             </div>
-            <span style={{
-                ...styles.badge,
-                background: branch.is_active ? '#d1fae5' : '#f1f5f9',
-                color: branch.is_active ? '#047857' : '#64748b'
-            }}>
+            <span style={{ ...styles.badge, background: branch.is_active ? '#d1fae5' : '#f1f5f9', color: branch.is_active ? '#047857' : '#64748b' }}>
                 {branch.is_active ? 'Activa' : 'Inactiva'}
             </span>
         </div>
-
         <div style={styles.branchStatsRow}>
-            <div style={styles.branchStat}>
-                <div style={{ color: '#6366f1', fontWeight: 700, fontSize: '1.1rem' }}>
-                    {Number(branch.total_movements).toLocaleString()}
+            {[
+                { label: 'Movimientos', value: Number(branch.total_movements).toLocaleString(), color: '#6366f1' },
+                { label: 'Entradas', value: Number(branch.total_entradas).toLocaleString(), color: '#10b981' },
+                { label: 'Salidas', value: Number(branch.total_salidas).toLocaleString(), color: '#ef4444' },
+                { label: 'Usuarios', value: Number(branch.active_users).toLocaleString(), color: '#f59e0b' },
+            ].map(s => (
+                <div key={s.label} style={styles.branchStat}>
+                    <div style={{ color: s.color, fontWeight: 700, fontSize: '1.1rem' }}>{s.value}</div>
+                    <div style={styles.branchStatLabel}>{s.label}</div>
                 </div>
-                <div style={styles.branchStatLabel}>Movimientos</div>
-            </div>
-            <div style={styles.branchStat}>
-                <div style={{ color: '#10b981', fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: '#10b981' }}>{icons.up}</span>
-                    {Number(branch.total_entradas).toLocaleString()}
-                </div>
-                <div style={styles.branchStatLabel}>Entradas</div>
-            </div>
-            <div style={styles.branchStat}>
-                <div style={{ color: '#ef4444', fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: '#ef4444' }}>{icons.down}</span>
-                    {Number(branch.total_salidas).toLocaleString()}
-                </div>
-                <div style={styles.branchStatLabel}>Salidas</div>
-            </div>
-            <div style={styles.branchStat}>
-                <div style={{ color: '#f59e0b', fontWeight: 700, fontSize: '1.1rem' }}>
-                    {Number(branch.active_users).toLocaleString()}
-                </div>
-                <div style={styles.branchStatLabel}>Usuarios</div>
-            </div>
+            ))}
         </div>
-
         {branch.admin_name && (
             <div style={styles.adminTag}>
                 <div style={styles.adminAvatar}>{branch.admin_name.charAt(0).toUpperCase()}</div>
@@ -138,7 +109,6 @@ const BranchCard: FC<BranchCardProps> = ({ branch, onSelect, selected }) => (
                 </div>
             </div>
         )}
-
         <button style={styles.viewBtn} onClick={() => onSelect(branch.id)}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {icons.eye} {selected ? 'Viendo detalle' : 'Ver detalle'}
@@ -147,26 +117,65 @@ const BranchCard: FC<BranchCardProps> = ({ branch, onSelect, selected }) => (
     </div>
 );
 
+// ─── Time range selector ─────────────────────────────────────
+type TimeRange = 'daily' | 'weekly' | 'monthly';
+const TimeSelector: FC<{ value: TimeRange; onChange: (v: TimeRange) => void }> = ({ value, onChange }) => (
+    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
+        {(['daily', 'weekly', 'monthly'] as TimeRange[]).map(t => (
+            <button
+                key={t}
+                onClick={() => onChange(t)}
+                style={{
+                    padding: '5px 14px', borderRadius: '7px', border: 'none', cursor: 'pointer',
+                    fontWeight: 600, fontSize: '0.78rem',
+                    background: value === t ? '#fff' : 'transparent',
+                    color: value === t ? '#6366f1' : '#64748b',
+                    boxShadow: value === t ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.2s',
+                }}
+            >
+                {t === 'daily' ? 'Diario' : t === 'weekly' ? 'Semanal' : 'Mensual'}
+            </button>
+        ))}
+    </div>
+);
+
 // ─── Main Component ──────────────────────────────────────────
+const POLL_INTERVAL = 30_000;
+
 const SuperAdminDashboard: FC = () => {
     const [stats, setStats] = useState<SuperAdminStats | null>(null);
     const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [selectedBranch, setSelectedBranch] = useState<number | null>(null);
+    const [timeRange, setTimeRange] = useState<TimeRange>('monthly');
+    const [categoryFilter, setCategoryFilter] = useState<string>('');
     const [searchParams, setSearchParams] = useSearchParams();
-    
+
     const tabParam = searchParams.get('tab');
+    const validTabs = ['global', 'branches', 'charts'];
+    const isInvalidTab = tabParam && !validTabs.includes(tabParam);
     const activeTab = tabParam === 'branches' ? 'branches' : tabParam === 'charts' ? 'charts' : 'global';
 
-    const setActiveTab = (tab: 'global' | 'branches') => {
+    const setActiveTab = (tab: string) => {
         setSearchParams({ tab });
         if (tab === 'global') setSelectedBranch(null);
     };
 
-    useEffect(() => {
+    const fetchStats = () => {
         api.get('/stats/super-dashboard')
-            .then(res => setStats(res.data.data))
+            .then(res => {
+                setStats(res.data.data);
+                setLastUpdated(new Date());
+            })
             .catch(() => {})
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchStats();
+        const interval = setInterval(fetchStats, POLL_INTERVAL);
+        return () => clearInterval(interval);
     }, []);
 
     const handleBranchSelect = (id: number) => {
@@ -175,6 +184,22 @@ const SuperAdminDashboard: FC = () => {
     };
 
     const selectedBranchData = stats?.branchStats.find(b => b.id === selectedBranch);
+
+    // Get the active movement data based on time range
+    const activeMovements: MovementPoint[] = stats
+        ? (timeRange === 'daily' ? stats.movementsDaily : timeRange === 'weekly' ? stats.movementsWeekly : stats.movementsMonthly)
+        : [];
+
+    // Derive category list from lowStockProducts
+    const lowStockCategories = stats
+        ? [...new Set(stats.lowStockProducts.map(p => p.category))].sort()
+        : [];
+
+    const filteredLowStock = stats
+        ? (categoryFilter ? stats.lowStockProducts.filter(p => p.category === categoryFilter) : [])
+        : [];
+
+    if (isInvalidTab) return <NotFound />;
 
     if (loading) {
         return (
@@ -202,35 +227,53 @@ const SuperAdminDashboard: FC = () => {
                         <p style={styles.subtitle}>
                             Vista global del sistema · {new Date().toLocaleDateString('es', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </p>
+                        {lastUpdated && (
+                            <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px' }}>
+                                Actualizado: {lastUpdated.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                &nbsp;·&nbsp;
+                                <button onClick={fetchStats} style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, padding: 0 }}>
+                                    ↻ Actualizar ahora
+                                </button>
+                            </p>
+                        )}
                     </div>
                     <div style={styles.superBadge}>
                         <div style={styles.superBadgeDot} />
-                        Super Admin
+                        En vivo · 30s
                     </div>
+                </div>
+
+                {/* ── Tab Navigation ── */}
+                <div style={styles.tabs}>
+                    {[
+                        { key: 'global', label: '📊 Global' },
+                        { key: 'charts', label: '📈 Gráficos' },
+                        { key: 'branches', label: '🏢 Sucursales' },
+                    ].map(t => (
+                        <button
+                            key={t.key}
+                            onClick={() => setActiveTab(t.key)}
+                            style={{ ...styles.tab, ...(activeTab === t.key ? styles.tabActive : {}) }}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* ════════════ GLOBAL TAB ════════════ */}
                 {activeTab === 'global' && stats && (
                     <>
-                        {/* ── KPI Grid ── */}
+                        {/* ── KPI Grid — Stock Total is the hero ── */}
                         <div style={styles.kpiGrid}>
                             <KpiCard
-                                label="Productos Activos"
-                                value={Number(stats.products.active_products).toLocaleString()}
-                                sub={`${Number(stats.products.low_stock_count)} con stock bajo`}
+                                label="Stock Total en Sistema"
+                                value={Number(stats.products.total_stock).toLocaleString()}
+                                sub={`${Number(stats.products.active_products)} productos activos · ${Number(stats.products.low_stock_count)} con stock crítico`}
                                 icon={icons.box}
                                 color="#6366f1"
                                 bg="#eef2ff"
-                                gradient="linear-gradient(135deg, #fafafa 60%, #eef2ff 100%)"
-                            />
-                            <KpiCard
-                                label="Stock Total"
-                                value={Number(stats.products.total_stock).toLocaleString()}
-                                sub="unidades en inventario"
-                                icon={icons.box}
-                                color="#10b981"
-                                bg="#ecfdf5"
-                                gradient="linear-gradient(135deg, #fafafa 60%, #ecfdf5 100%)"
+                                gradient="linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%)"
+                                large
                             />
                             <KpiCard
                                 label="Total Usuarios"
@@ -261,7 +304,7 @@ const SuperAdminDashboard: FC = () => {
                             />
                             {Number(stats.products.low_stock_count) > 0 && (
                                 <KpiCard
-                                    label="Alertas Stock Bajo"
+                                    label="Alertas Stock Crítico"
                                     value={Number(stats.products.low_stock_count).toLocaleString()}
                                     sub="productos bajo umbral"
                                     icon={icons.warn}
@@ -271,155 +314,204 @@ const SuperAdminDashboard: FC = () => {
                                 />
                             )}
                         </div>
+
+                        {/* ── Stock por Categoría (pie) ── */}
+                        {stats.stockByCategory.length > 0 && (
+                            <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+                                <div style={styles.chartHeader}>
+                                    <h3 style={styles.chartTitle}>🥧 Distribución de Stock por Categoría</h3>
+                                    <span style={styles.chartBadge}>Inventario</span>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'center' }}>
+                                    <ResponsiveContainer width="100%" height={220}>
+                                        <PieChart>
+                                            <Pie
+                                                data={stats.stockByCategory}
+                                                dataKey="total_stock"
+                                                nameKey="category"
+                                                cx="50%" cy="50%"
+                                                outerRadius={90} innerRadius={45}
+                                                paddingAngle={3}
+                                            >
+                                                {stats.stockByCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                            </Pie>
+                                            <Tooltip formatter={(v: any) => [Number(v).toLocaleString(), 'Unidades']} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {stats.stockByCategory.map((item, i) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                                                <span style={{ fontSize: '0.82rem', color: '#475569', flex: 1 }}>{item.category}</span>
+                                                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a' }}>{Number(item.total_stock).toLocaleString()} uds</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </>
                 )}
 
                 {/* ════════════ CHARTS TAB ════════════ */}
                 {activeTab === 'charts' && stats && (
                     <>
-                        {/* ── Charts Row 1 ── */}
-                        <div style={styles.chartsRow}>
-
-                            {/* Area Chart — Monthly trends */}
-                            <div className="card" style={styles.chartCard}>
-                                <div style={styles.chartHeader}>
-                                    <h3 style={styles.chartTitle}>📈 Movimientos (Últimos 30 días)</h3>
-                                    <span style={styles.chartBadge}>Tendencia Diaria</span>
-                                </div>
-                                {stats.monthlyMovements.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={240}>
-                                        <AreaChart data={stats.monthlyMovements} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                            <defs>
-                                                <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                                </linearGradient>
-                                                <linearGradient id="gradSalidas" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                            <Area type="monotone" dataKey="entradas" name="Entradas" stroke="#10b981" strokeWidth={2.5} fill="url(#gradEntradas)" dot={{ r: 4, fill: '#10b981' }} />
-                                            <Area type="monotone" dataKey="salidas" name="Salidas" stroke="#ef4444" strokeWidth={2.5} fill="url(#gradSalidas)" dot={{ r: 4, fill: '#ef4444' }} />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div style={styles.empty}>Sin datos de movimientos en los últimos 6 meses</div>
-                                )}
-                            </div>
-
-                            {/* Pie Chart — Stock by category */}
-                            <div className="card" style={styles.chartCard}>
-                                <div style={styles.chartHeader}>
-                                    <h3 style={styles.chartTitle}>🥧 Stock por Categoría</h3>
-                                    <span style={styles.chartBadge}>Distribución</span>
-                                </div>
-                                {stats.stockByCategory.length > 0 ? (
-                                    <>
-                                        <ResponsiveContainer width="100%" height={200}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={stats.stockByCategory}
-                                                    dataKey="total_stock"
-                                                    nameKey="category"
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    outerRadius={80}
-                                                    innerRadius={40}
-                                                    paddingAngle={3}
-                                                >
-                                                    {stats.stockByCategory.map((_, i) => (
-                                                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip formatter={(v: any) => [Number(v).toLocaleString(), 'Stock']} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                        <div style={styles.pieLegend}>
-                                            {stats.stockByCategory.map((item, i) => (
-                                                <div key={i} style={styles.pieLegendItem}>
-                                                    <div style={{ ...styles.pieDot, background: COLORS[i % COLORS.length] }} />
-                                                    <span style={{ fontSize: '0.75rem', color: '#475569' }}>{item.category}</span>
-                                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
-                                                        {Number(item.total_stock).toLocaleString()}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div style={styles.empty}>Sin datos de categorías</div>
-                                )}
-                            </div>
+                        {/* ── Time range selector ── */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.25rem' }}>
+                            <TimeSelector value={timeRange} onChange={setTimeRange} />
                         </div>
 
-                        {/* ── Bar Chart — Top products ── */}
-                        {stats.topProducts.length > 0 && (
-                            <div className="card" style={{ ...styles.chartCard, marginBottom: '1.5rem' }}>
-                                <div style={styles.chartHeader}>
-                                    <h3 style={styles.chartTitle}>🏆 Top Productos por Movimiento</h3>
-                                    <span style={styles.chartBadge}>Ranking</span>
-                                </div>
-                                <ResponsiveContainer width="100%" height={220}>
-                                    <BarChart data={stats.topProducts} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        {/* ── Chart: Entradas ── */}
+                        <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+                            <div style={styles.chartHeader}>
+                                <h3 style={{ ...styles.chartTitle, color: '#059669' }}>📥 Entradas de Inventario</h3>
+                                <span style={{ ...styles.chartBadge, background: '#d1fae5', color: '#065f46' }}>
+                                    {timeRange === 'daily' ? 'Últimos 14 días' : timeRange === 'weekly' ? 'Últimas 12 semanas' : 'Últimos 6 meses'}
+                                </span>
+                            </div>
+                            {activeMovements.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={260}>
+                                    <BarChart data={activeMovements} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                         <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                         <Tooltip content={<CustomTooltip />} />
+                                        <Bar dataKey="entradas" name="Entradas" fill="#10b981" radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div style={styles.empty}>Sin datos de entradas para este período</div>
+                            )}
+                        </div>
+
+                        {/* ── Chart: Salidas ── */}
+                        <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+                            <div style={styles.chartHeader}>
+                                <h3 style={{ ...styles.chartTitle, color: '#dc2626' }}>📤 Salidas de Inventario</h3>
+                                <span style={{ ...styles.chartBadge, background: '#fee2e2', color: '#991b1b' }}>
+                                    {timeRange === 'daily' ? 'Últimos 14 días' : timeRange === 'weekly' ? 'Últimas 12 semanas' : 'Últimos 6 meses'}
+                                </span>
+                            </div>
+                            {activeMovements.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={260}>
+                                    <BarChart data={activeMovements} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Bar dataKey="salidas" name="Salidas" fill="#ef4444" radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div style={styles.empty}>Sin datos de salidas para este período</div>
+                            )}
+                        </div>
+
+                        {/* ── Chart: Top Productos ── */}
+                        {stats.topProducts.length > 0 && (
+                            <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+                                <div style={styles.chartHeader}>
+                                    <h3 style={styles.chartTitle}>🏆 Top Productos por Movimiento</h3>
+                                    <span style={styles.chartBadge}>Ranking Global</span>
+                                </div>
+                                <ResponsiveContainer width="100%" height={240}>
+                                    <BarChart data={stats.topProducts} layout="vertical" margin={{ top: 5, right: 30, left: 60, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                                        <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                        <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: '#475569' }} width={60} />
+                                        <Tooltip content={<CustomTooltip />} />
                                         <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                        <Bar dataKey="entradas" name="Entradas" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                        <Bar dataKey="salidas" name="Salidas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="entradas" name="Entradas" fill="#10b981" radius={[0, 4, 4, 0]} stackId="a" />
+                                        <Bar dataKey="salidas" name="Salidas" fill="#ef4444" radius={[0, 4, 4, 0]} stackId="b" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         )}
 
-                        {/* ── Low stock table ── */}
-                        {stats.lowStockProducts.length > 0 && (
-                            <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '1.5rem' }}>
-                                <div style={{ ...styles.chartHeader, padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ ...styles.chartTitle, color: '#dc2626' }}>
-                                        {icons.warn} <span style={{ marginLeft: '6px' }}>Productos con Stock Crítico</span>
-                                    </h3>
-                                    <span style={{ ...styles.chartBadge, background: '#fee2e2', color: '#dc2626' }}>
-                                        {stats.lowStockProducts.length} alertas
-                                    </span>
+                        {/* ── Stock Crítico por Categoría ── */}
+                        <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+                            <div style={styles.chartHeader}>
+                                <h3 style={{ ...styles.chartTitle, color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {icons.warn} Stock Crítico por Categoría
+                                </h3>
+                                <span style={{ ...styles.chartBadge, background: '#fee2e2', color: '#dc2626' }}>
+                                    {stats.lowStockProducts.length} alertas
+                                </span>
+                            </div>
+
+                            {stats.lowStockProducts.length === 0 ? (
+                                <div style={{ ...styles.empty, color: '#10b981' }}>
+                                    ✅ Todo el stock está en niveles saludables
                                 </div>
-                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                    <thead>
-                                        <tr style={{ background: '#fef2f2', borderBottom: '1px solid #fee2e2' }}>
-                                            {['Producto', 'Categoría', 'Stock'].map(h => (
-                                                <th key={h} style={styles.th}>{h}</th>
+                            ) : (
+                                <>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.25rem' }}>
+                                        <span style={{ color: '#64748b', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {icons.filter} Filtrar por categoría:
+                                        </span>
+                                        <select
+                                            value={categoryFilter}
+                                            onChange={e => setCategoryFilter(e.target.value)}
+                                            style={{
+                                                padding: '6px 14px', borderRadius: '8px', border: '1.5px solid #e2e8f0',
+                                                fontSize: '0.85rem', fontWeight: 600, color: '#334155',
+                                                background: '#fff', cursor: 'pointer', outline: 'none',
+                                            }}
+                                        >
+                                            <option value="">— Selecciona una categoría —</option>
+                                            {lowStockCategories.map(cat => (
+                                                <option key={cat} value={cat}>{cat}</option>
                                             ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {stats.lowStockProducts.map(p => (
-                                            <tr key={p.id} style={{ borderBottom: '1px solid #fef2f2' }}>
-                                                <td style={styles.td}><strong>{p.name}</strong></td>
-                                                <td style={styles.td}>
-                                                    <span style={styles.catBadge}>{p.category || '—'}</span>
-                                                </td>
-                                                <td style={styles.td}>
+                                        </select>
+                                    </div>
+
+                                    {!categoryFilter ? (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                            {lowStockCategories.map(cat => {
+                                                const count = stats.lowStockProducts.filter(p => p.category === cat).length;
+                                                const i = lowStockCategories.indexOf(cat);
+                                                return (
+                                                    <button
+                                                        key={cat}
+                                                        onClick={() => setCategoryFilter(cat)}
+                                                        style={{
+                                                            padding: '8px 18px', borderRadius: '20px', border: `2px solid ${COLORS[i % COLORS.length]}`,
+                                                            background: `${COLORS[i % COLORS.length]}15`, color: COLORS[i % COLORS.length],
+                                                            fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        {cat} · {count} producto{count !== 1 ? 's' : ''}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {filteredLowStock.map(p => (
+                                                <div key={p.id} style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    padding: '12px 16px', borderRadius: '12px',
+                                                    background: p.stock === 0 ? '#fef2f2' : '#fffbeb',
+                                                    border: `1px solid ${p.stock === 0 ? '#fecaca' : '#fde68a'}`,
+                                                }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>{p.name}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{p.category}</div>
+                                                    </div>
                                                     <span style={{
-                                                        ...styles.stockBadge,
+                                                        padding: '4px 14px', borderRadius: '20px', fontWeight: 800, fontSize: '0.82rem',
                                                         background: p.stock === 0 ? '#fee2e2' : '#fef3c7',
                                                         color: p.stock === 0 ? '#dc2626' : '#d97706',
                                                     }}>
                                                         {p.stock === 0 ? 'Agotado' : `${p.stock} uds`}
                                                     </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </>
                 )}
 
@@ -428,30 +520,21 @@ const SuperAdminDashboard: FC = () => {
                     <>
                         <div style={styles.branchesGrid}>
                             {stats.branchStats.map(branch => (
-                                <BranchCard
-                                    key={branch.id}
-                                    branch={branch}
-                                    onSelect={handleBranchSelect}
-                                    selected={selectedBranch === branch.id}
-                                />
+                                <BranchCard key={branch.id} branch={branch} onSelect={handleBranchSelect} selected={selectedBranch === branch.id} />
                             ))}
                             {stats.branchStats.length === 0 && (
                                 <div style={{ ...styles.empty, gridColumn: '1/-1', padding: '3rem' }}>
-                                    No hay sucursales registradas. Ejecuta la migración SQL e asigna branch_id a tus admins.
+                                    No hay sucursales registradas.
                                 </div>
                             )}
                         </div>
 
-                        {/* ── Branch detail panel ── */}
                         {selectedBranchData && (
                             <div className="card" style={styles.branchDetail}>
                                 <div style={styles.chartHeader}>
-                                    <h3 style={styles.chartTitle}>
-                                        {icons.branch} <span style={{ marginLeft: '8px' }}>Detalle — {selectedBranchData.name}</span>
-                                    </h3>
+                                    <h3 style={styles.chartTitle}>{icons.branch} <span style={{ marginLeft: '8px' }}>Detalle — {selectedBranchData.name}</span></h3>
                                     <button style={styles.closeBtn} onClick={() => setSelectedBranch(null)}>✕ Cerrar</button>
                                 </div>
-
                                 <div style={styles.branchDetailGrid}>
                                     {[
                                         { label: 'Movimientos', value: Number(selectedBranchData.total_movements).toLocaleString(), color: '#6366f1' },
@@ -465,8 +548,6 @@ const SuperAdminDashboard: FC = () => {
                                         </div>
                                     ))}
                                 </div>
-
-                                {/* Mini bar chart for selected branch */}
                                 <div style={{ marginTop: '1.5rem' }}>
                                     <ResponsiveContainer width="100%" height={180}>
                                         <BarChart
@@ -499,94 +580,46 @@ const SuperAdminDashboard: FC = () => {
 
 // ─── Styles ─────────────────────────────────────────────────
 const styles: Record<string, CSSProperties> = {
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' },
+    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' },
     title: { color: '#0f172a', fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.03em', margin: 0 },
     subtitle: { color: '#64748b', fontSize: '0.9rem', marginTop: '0.4rem' },
-    superBadge: {
-        display: 'flex', alignItems: 'center', gap: '8px',
-        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-        color: '#fff', padding: '8px 18px', borderRadius: '50px',
-        fontWeight: 700, fontSize: '0.85rem',
-        boxShadow: '0 4px 12px rgba(99,102,241,0.35)',
-    },
+    superBadge: { display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', padding: '8px 18px', borderRadius: '50px', fontWeight: 700, fontSize: '0.85rem', boxShadow: '0 4px 12px rgba(99,102,241,0.35)' },
     superBadgeDot: { width: '8px', height: '8px', borderRadius: '50%', background: '#a5f3fc', animation: 'pulse 2s infinite' },
 
-    kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '2rem' },
-    kpiCard: {
-        borderRadius: '16px', padding: '1.4rem 1.5rem',
-        border: '1px solid rgba(226,232,240,0.7)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-    },
-    kpiValue: { fontSize: '2.2rem', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.1 },
-    kpiLabel: { fontSize: '0.85rem', color: '#475569', fontWeight: 600, marginTop: '0.4rem' },
-    kpiSub: { fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' },
-    kpiIcon: { width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-
     tabs: { display: 'flex', gap: '0.5rem', marginBottom: '1.75rem', flexWrap: 'wrap' },
-    tab: {
-        padding: '0.6rem 1.25rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
-        background: '#fff', color: '#64748b', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer',
-        transition: 'all 0.2s ease',
-    },
+    tab: { padding: '0.6rem 1.25rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s ease' },
     tabActive: { background: '#6366f1', color: '#fff', borderColor: '#6366f1', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' },
 
-    chartsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' },
-    chartCard: { padding: '1.5rem', borderRadius: '16px' },
+    kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '2rem' },
+    kpiCard: { borderRadius: '16px', padding: '1.4rem 1.5rem', border: '1px solid rgba(226,232,240,0.7)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', transition: 'transform 0.2s ease, box-shadow 0.2s ease' },
+    kpiValue: { fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.1 },
+    kpiLabel: { fontSize: '0.85rem', color: '#475569', fontWeight: 600, marginTop: '0.4rem' },
+    kpiSub: { fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' },
+    kpiIcon: { borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+
     chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '8px' },
     chartTitle: { color: '#0f172a', fontSize: '1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center' },
-    chartBadge: {
-        background: '#f1f5f9', color: '#475569', fontSize: '0.72rem', fontWeight: 700,
-        padding: '3px 10px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.05em'
-    },
-
-    pieLegend: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '1rem' },
-    pieLegendItem: { display: 'flex', alignItems: 'center', gap: '8px' },
-    pieDot: { width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0 },
-
-    th: { padding: '0.7rem 1.25rem', textAlign: 'left', fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' },
-    td: { padding: '0.9rem 1.25rem', fontSize: '0.875rem', color: '#334155' },
-    catBadge: { background: '#f1f5f9', color: '#475569', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 500 },
-    stockBadge: { padding: '3px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700 },
+    chartBadge: { background: '#f1f5f9', color: '#475569', fontSize: '0.72rem', fontWeight: 700, padding: '3px 10px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.05em' },
 
     branchesGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' },
-    branchCard: {
-        background: '#fff', borderRadius: '16px', padding: '1.5rem',
-        cursor: 'pointer', transition: 'all 0.25s ease',
-    },
+    branchCard: { background: '#fff', borderRadius: '16px', padding: '1.5rem', cursor: 'pointer', transition: 'all 0.25s ease' },
     branchIcon: { width: '44px', height: '44px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
     badge: { padding: '4px 12px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700 },
     branchStatsRow: { display: 'flex', justifyContent: 'space-between', margin: '1rem 0', padding: '1rem', background: '#f8fafc', borderRadius: '12px' },
     branchStat: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' },
     branchStatLabel: { fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 },
     adminTag: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#f8fafc', borderRadius: '10px', marginBottom: '12px' },
-    adminAvatar: {
-        width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
-        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontWeight: 700, fontSize: '0.85rem'
-    },
-    viewBtn: {
-        width: '100%', padding: '0.6rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
-        background: '#fff', color: '#6366f1', fontWeight: 600, fontSize: '0.85rem',
-        cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', justifyContent: 'center'
-    },
+    adminAvatar: { width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.85rem' },
+    viewBtn: { width: '100%', padding: '0.6rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#fff', color: '#6366f1', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', justifyContent: 'center' },
 
     branchDetail: { padding: '1.75rem', borderRadius: '20px', marginBottom: '1.5rem', border: '2px solid #eef2ff' },
     branchDetailGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginTop: '1.25rem' },
     branchDetailKpi: { background: '#f8fafc', borderRadius: '14px', padding: '1.2rem 1rem', textAlign: 'center' },
-    closeBtn: {
-        background: '#f1f5f9', border: 'none', color: '#475569', padding: '6px 14px',
-        borderRadius: '8px', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer'
-    },
+    closeBtn: { background: '#f1f5f9', border: 'none', color: '#475569', padding: '6px 14px', borderRadius: '8px', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' },
 
     empty: { textAlign: 'center', color: '#94a3b8', padding: '2rem', fontSize: '0.9rem' },
     loadingSpinner: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
-    spinner: {
-        width: '48px', height: '48px', borderRadius: '50%',
-        border: '4px solid #e2e8f0', borderTopColor: '#6366f1',
-        animation: 'spin 0.8s linear infinite'
-    },
+    spinner: { width: '48px', height: '48px', borderRadius: '50%', border: '4px solid #e2e8f0', borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite' },
 };
 
 export default SuperAdminDashboard;

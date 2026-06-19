@@ -49,8 +49,8 @@ export class ProductRepository {
 
     async create(data: CreateProductInput): Promise<number> {
         const [result] = await pool.execute<any>(
-            'INSERT INTO products (name, stock, price, category, description) VALUES (?, ?, ?, ?, ?)',
-            [data.name, data.stock, data.price, data.category ?? null, data.description ?? null]
+            'INSERT INTO products (name, stock, price, category, description, traceable) VALUES (?, ?, ?, ?, ?, ?)',
+            [data.name, data.stock, data.price, data.category ?? null, data.description ?? null, data.traceable ? 1 : 0]
         )
         return result.insertId
     }

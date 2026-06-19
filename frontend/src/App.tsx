@@ -29,10 +29,10 @@ function App() {
         } />
 
         <Route path="/products" element={
-          <PrivateRoute excludeSuperAdmin={true}><Products /></PrivateRoute>
+          <PrivateRoute><Products /></PrivateRoute>
         } />
         <Route path="/movements" element={
-          <PrivateRoute excludeSuperAdmin={true}><Movements /></PrivateRoute>
+          <PrivateRoute><Movements /></PrivateRoute>
         } />
         <Route path="/users" element={
           <PrivateRoute adminOnly={true}><Users /></PrivateRoute>

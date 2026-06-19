@@ -26,7 +26,7 @@ export const authenticate = (
 
 export const authorize = (...roles: string[]) => {
     return (req: Request, res: Response, next: NextFunction): void => {
-        if (!req.user || !roles.includes(req.user.role)) {
+        if (!req.user || (!roles.includes(req.user.role) && req.user.role !== 'super_admin')) {
             return next(new AppError(403, 'No tienes permisos para esta acción'))
         }
         next()

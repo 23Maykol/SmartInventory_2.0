@@ -41,6 +41,12 @@ const Products = () => {
 
     useEffect(() => { fetchProducts() }, [fetchProducts])
 
+    // Auto-refresh every 30 seconds
+    useEffect(() => {
+        const interval = setInterval(fetchProducts, 30_000)
+        return () => clearInterval(interval)
+    }, [fetchProducts])
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value })
         setFormError('')

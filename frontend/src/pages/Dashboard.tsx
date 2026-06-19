@@ -4,8 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
-import type { DashboardStats } from '../types';
+import NotFound from './NotFound';
+import type { DashboardStats, Product } from '../types';
 
 // SVGs helper
 const icons = {
@@ -26,8 +26,18 @@ const Dashboard: FC = () => {
     const [searchParams] = useSearchParams()
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-    const activeTab = searchParams.get('tab') || 'global'
+    // Form states for employee
+    const [products, setProducts] = useState<Product[]>([])
+    const [form, setForm] = useState({ product_id: '', type: 'entrada', quantity: '', note: '', serial_code: '' })
+    const [formError, setFormError] = useState('')
+    const [successMsg, setSuccessMsg] = useState('')
+    const [formLoading, setFormLoading] = useState(false)
+
+    const tabParam = searchParams.get('tab')
+    const isInvalidTab = tabParam && !['global'].includes(tabParam)
+    const activeTab = tabParam || 'global'
 
     // Super admin has their own dedicated dashboard
     useEffect(() => {
@@ -36,34 +46,222 @@ const Dashboard: FC = () => {
         }
     }, [isSuperAdmin, navigate])
 
-    useEffect(() => {
+    const fetchData = () => {
         if (isAdmin && !isSuperAdmin) {
             api.get('/stats/dashboard')
-                .then(res => setStats(res.data.data))
-                .catch(() => { })
+                .then(res => {
+                    setStats(res.data.data)
+                    setLastUpdated(new Date())
+                })
+                .catch(() => {})
                 .finally(() => setLoading(false))
-        } else if (!isSuperAdmin) {
+        } else if (!isAdmin) {
+            api.get('/products?limit=100')
+                .then(res => {
+                    setProducts(res.data.data)
+                    setLastUpdated(new Date())
+                })
+                .catch(() => {})
+                .finally(() => setLoading(false))
+        } else {
             setLoading(false)
         }
+    }
+
+    useEffect(() => {
+        if (isSuperAdmin) return
+        fetchData()
+        const interval = setInterval(fetchData, 30_000)
+        return () => clearInterval(interval)
     }, [isAdmin, isSuperAdmin])
+
+    const handleMovementSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setFormLoading(true)
+        setFormError('')
+        try {
+            await api.post('/movements', {
+                product_id: Number(form.product_id),
+                type: form.type,
+                quantity: Number(form.quantity),
+                note: form.note || null,
+                serial_code: form.serial_code || undefined
+            })
+            setSuccessMsg(`Movimiento registrado exitosamente`)
+            setForm({ product_id: '', type: 'entrada', quantity: '', note: '', serial_code: '' })
+            setTimeout(() => setSuccessMsg(''), 3000)
+            // Refresh products stock immediately after movement
+            fetchData()
+        } catch (err: any) {
+            setFormError(err.response?.data?.message || 'Error al registrar movimiento')
+        } finally {
+            setFormLoading(false)
+        }
+    }
+
+    if (isInvalidTab) {
+        return <NotFound />
+    }
 
     return (
         <div className="page-container">
             <Navbar />
             <div className="main-content">
                 <div style={styles.welcome}>
-                    <h1 style={styles.title}>Bienvenido, {user?.name}</h1>
-                    <p style={styles.subtitle}>
-                        Rol: <strong style={{ color: '#0f172a' }}>{user?.role === 'admin'
-                            ? 'Administrador'
-                            : user?.role === 'super_admin'
-                                ? 'Super Admin'
-                                : 'Empleado'
-                        }
-                        </strong>
-
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                            <h1 style={styles.title}>Bienvenido, {user?.name}</h1>
+                            <p style={styles.subtitle}>
+                                Rol: <strong style={{ color: '#0f172a' }}>{user?.role === 'admin'
+                                    ? 'Administrador'
+                                    : user?.role === 'super_admin'
+                                        ? 'Super Admin'
+                                        : 'Empleado'
+                                }
+                                </strong>
+                            </p>
+                            {lastUpdated && (
+                                <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px' }}>
+                                    Actualizado: {lastUpdated.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                    &nbsp;·&nbsp;
+                                    <button
+                                        onClick={fetchData}
+                                        style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                                    >
+                                        ↻ Actualizar ahora
+                                    </button>
+                                </p>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', padding: '7px 16px', borderRadius: '50px', fontWeight: 700, fontSize: '0.8rem', boxShadow: '0 4px 12px rgba(99,102,241,0.3)', whiteSpace: 'nowrap' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a5f3fc', display: 'inline-block' }} />
+                            En vivo · 30s
+                        </div>
+                    </div>
                 </div>
+
+                {/* Employee view: Quick movements */}
+                {!isAdmin && !loading && (
+                    <div className="card" style={{ maxWidth: '600px', margin: '0 auto', marginTop: '2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid #f1f5f9' }}>
+                            <div style={{ ...styles.statIconWrapper, background: '#eef2ff', color: '#6366f1', marginBottom: 0 }}>
+                                {icons.sync}
+                            </div>
+                            <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>Registro Rápido de Movimientos</h3>
+                        </div>
+
+                        {successMsg && <div style={styles.successBanner}>{successMsg}</div>}
+                        {formError && <div style={{ ...styles.successBanner, background: '#fef2f2', color: '#dc2626', borderColor: '#fee2e2' }}>{formError}</div>}
+
+                        <form onSubmit={handleMovementSubmit}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                <div className="form-group">
+                                    <label style={styles.formLabel}>Producto</label>
+                                    <select
+                                        value={form.product_id}
+                                        onChange={e => setForm({ ...form, product_id: e.target.value })}
+                                        style={styles.formSelect}
+                                        required
+                                    >
+                                        <option value="">Selecciona el producto...</option>
+                                        {products.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name} (Stock actual: {p.stock})</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="form-group">
+                                        <label style={styles.formLabel}>Tipo de Movimiento</label>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setForm({ ...form, type: 'entrada' })}
+                                                style={{ ...styles.typeBtn, background: form.type === 'entrada' ? '#d1fae5' : '#f8fafc', color: form.type === 'entrada' ? '#047857' : '#64748b', borderColor: form.type === 'entrada' ? '#10b981' : '#e2e8f0' }}
+                                            >
+                                                + Entrada
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setForm({ ...form, type: 'salida' })}
+                                                style={{ ...styles.typeBtn, background: form.type === 'salida' ? '#fee2e2' : '#f8fafc', color: form.type === 'salida' ? '#be123c' : '#64748b', borderColor: form.type === 'salida' ? '#ef4444' : '#e2e8f0' }}
+                                            >
+                                                - Salida
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label style={styles.formLabel}>Cantidad</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={form.quantity}
+                                            onChange={e => setForm({ ...form, quantity: e.target.value })}
+                                            required
+                                            style={styles.formSelect}
+                                            placeholder="Ej. 10"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label style={styles.formLabel}>Nota (Opcional)</label>
+                                    <input
+                                        type="text"
+                                        value={form.note}
+                                        onChange={e => setForm({ ...form, note: e.target.value })}
+                                        style={styles.formSelect}
+                                        placeholder="Motivo del movimiento..."
+                                    />
+                                </div>
+
+                                {products.find(p => p.id === Number(form.product_id))?.traceable && (
+                                    <div className="form-group">
+                                        <label style={styles.formLabel}>Código de Serie / Barras</label>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <input
+                                                type="text"
+                                                value={form.serial_code}
+                                                onChange={e => setForm({ ...form, serial_code: e.target.value })}
+                                                style={{ ...styles.formSelect, borderColor: '#6366f1', flex: 1 }}
+                                                placeholder="Ej. SN-AUR-202"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const prodName = products.find(p => p.id === Number(form.product_id))?.name || 'PRD';
+                                                    const prefix = prodName.replace(/[^A-Za-z0-9]/g, '').substring(0, 3).toUpperCase();
+                                                    const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+                                                    setForm({ ...form, serial_code: `${prefix}-${randomStr}` });
+                                                }}
+                                                style={{ padding: '0 1rem', background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
+                                                title="Generar código aleatorio automáticamente"
+                                            >
+                                                Generar
+                                            </button>
+                                        </div>
+                                        <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                                            Este producto requiere rastreo individual por unidad.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={formLoading || loading}
+                                style={{
+                                    width: '100%', padding: '0.8rem', marginTop: '1.5rem', borderRadius: '10px',
+                                    background: formLoading ? '#94a3b8' : '#6366f1', color: 'white', fontWeight: 700,
+                                    border: 'none', cursor: formLoading ? 'not-allowed' : 'pointer', transition: 'background 0.2s ease'
+                                }}
+                            >
+                                {formLoading ? 'Procesando...' : 'Confirmar Movimiento'}
+                            </button>
+                        </form>
+                    </div>
+                )}
 
                 {/* Stats para admin */}
                 {isAdmin && !loading && stats && activeTab === 'global' && (
@@ -91,137 +289,6 @@ const Dashboard: FC = () => {
                         </div>
                     </>
                 )}
-
-                {isAdmin && !loading && stats && activeTab === 'charts' && (
-                    <>
-                        <div style={styles.twoCol}>
-                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={styles.cardTitle}>Movimientos</h3>
-                                </div>
-                                <div style={styles.chartContainer}>
-                                    <ResponsiveContainer width="100%" height={250}>
-                                        <BarChart
-                                            data={[
-                                                { name: 'Entradas', value: stats?.movements?.total_entradas ?? 0 },
-                                                { name: 'Salidas', value: stats?.movements?.total_salidas ?? 0 }
-                                            ]}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="name" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Bar dataKey="value" fill="#4f46e5" />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            {/* Stock bajo */}
-                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ color: '#d97706', display: 'flex' }}>{icons.warning}</span>
-                                    <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>
-                                        Productos con Stock Bajo
-                                    </h3>
-                                </div>
-{stats.lowStockProducts.length > 0 && (
-  <ResponsiveContainer width="100%" height={250}>
-    <BarChart data={stats.lowStockProducts.map(p => ({ name: p.name, stock: p.stock }))}>
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="name" />
-      <YAxis />
-      <Tooltip />
-      <Bar dataKey="stock" fill="#ef4444" />
-    </BarChart>
-  </ResponsiveContainer>
-)}
-
-                                {stats.lowStockProducts.length === 0 ? (
-                                    <p style={styles.empty}>No hay productos con stock bajo</p>
-                                ) : (
-                                    <table style={styles.table}>
-                                        <thead>
-                                            <tr style={styles.tableHead}>
-                                                <th style={styles.th}>Producto</th>
-                                                <th style={styles.th}>Categoría</th>
-                                                <th style={styles.th}>Stock</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {stats.lowStockProducts.map(p => (
-                                                <tr key={p.id} style={styles.tr}>
-                                                    <td style={styles.td}><strong>{p.name}</strong></td>
-                                                    <td style={styles.td}>
-                                                        <span style={{ ...styles.categoryBadge }}>
-                                                            {p.category || '—'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={styles.td}>
-                                                        <span style={{
-                                                            ...styles.badge,
-                                                            background: p.stock === 0 ? '#ffe4e6' : '#fef3c7',
-                                                            color: p.stock === 0 ? '#e11d48' : '#d97706'
-                                                        }}>
-                                                            {p.stock === 0 ? 'Agotado' : p.stock}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Top productos */}
-                        {stats && stats.topProducts.length > 0 && (
-                            <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>Top Productos más Movidos</h3>
-                                </div>
-<ResponsiveContainer width="100%" height={250}>
-  <BarChart data={stats.topProducts.map(p => ({ name: p.name, movimientos: p.total_movimientos }))}>
-    <CartesianGrid strokeDasharray="3 3" />
-    <XAxis dataKey="name" />
-    <YAxis />
-    <Tooltip />
-    <Bar dataKey="movimientos" fill="#4f46e5" />
-  </BarChart>
-</ResponsiveContainer>
-                                <table style={styles.table}>
-                                    <thead>
-                                        <tr style={styles.tableHead}>
-                                            <th style={styles.th}>#</th>
-                                            <th style={styles.th}>Producto</th>
-                                            <th style={styles.th}>Categoría</th>
-                                            <th style={styles.th}>Total Movimientos</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {stats.topProducts.map((p, i) => (
-                                            <tr key={p.id} style={styles.tr}>
-                                                <td style={styles.td}>
-                                                    <div style={styles.rankBadge}>{i + 1}</div>
-                                                </td>
-                                                <td style={styles.td}><strong>{p.name}</strong></td>
-                                                <td style={styles.td}>
-                                                    <span style={styles.categoryBadge}>{p.category || '—'}</span>
-                                                </td>
-                                                <td style={styles.td}>
-                                                    <span style={{ ...styles.badge, background: '#eef2ff', color: '#4f46e5' }}>
-                                                        {p.total_movimientos} movs
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </>
-                )}
-
 
 
             </div>
@@ -337,7 +404,11 @@ const styles: Record<string, React.CSSProperties> = {
         transition: 'transform 0.2s ease'
     },
     quickTitle: { color: '#0f172a', marginBottom: '0.4rem', fontSize: '1.1rem', fontWeight: 600 },
-    quickDesc: { color: '#64748b', fontSize: '0.85rem' }
+    quickDesc: { color: '#64748b', fontSize: '0.85rem' },
+    successBanner: { background: '#ecfdf5', color: '#047857', padding: '0.8rem 1.2rem', borderRadius: '10px', marginBottom: '1.5rem', fontWeight: 500, border: '1px solid #d1fae5' },
+    formSelect: { width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#0f172a', backgroundColor: '#fff' },
+    typeBtn: { flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1.5px solid', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease' },
+    formLabel: { fontSize: '0.9rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem', display: 'block' }
 }
 
 export default Dashboard;
