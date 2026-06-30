@@ -25,6 +25,13 @@ export class MovementController {
 
     create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
+            if (req.user!.role === 'employee' && !req.user!.branch_id) {
+                res.status(403).json({
+                    ok: false,
+                    message: 'No puedes registrar movimientos porque no tienes una sucursal asignada. Contacta a un administrador.'
+                });
+                return;
+            }
             const movementId = await this.service.create(req.body, req.user!.id)
             res.status(201).json({
                 ok: true,

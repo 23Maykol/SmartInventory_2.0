@@ -294,90 +294,104 @@ const Dashboard: FC = () => {
                         )}
 
                         <div className="w-full bg-white/90 backdrop-blur-xl border border-slate-100 rounded-2xl shadow-xl p-6 md:p-8 transform transition-all animate-fadeIn">
-                            <div className="mb-8 text-center">
-                                <h2 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">Registrar Movimiento</h2>
-                                <p className="text-slate-500 mt-2 text-sm">Registra una entrada o salida de productos disponibles en el inventario.</p>
-                            </div>
+                            {!user?.branch_id ? (
+                                <div className="text-center py-10">
+                                    <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-5">
+                                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                    </div>
+                                    <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Acceso Restringido</h2>
+                                    <p className="text-slate-500 mt-3 text-sm max-w-md mx-auto">
+                                        Por razones de seguridad, no puedes registrar movimientos en el sistema porque no tienes una sucursal asignada. Por favor, contacta a un administrador para que asigne tu perfil a una sucursal.
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="mb-8 text-center">
+                                        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">Registrar Movimiento</h2>
+                                        <p className="text-slate-500 mt-2 text-sm">Registra una entrada o salida de productos disponibles en el inventario.</p>
+                                    </div>
 
-                            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Producto *</label>
-                                        <select
-                                            value={form.product_id}
-                                            onChange={e => setForm({ ...form, product_id: e.target.value })}
-                                            required
-                                            className="appearance-none w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
-                                        >
-                                            <option value="">Selecciona un producto...</option>
-                                            {products.map(p => (
-                                                <option key={p.id} value={p.id}>
-                                                    {p.name} (Stock actual: {p.stock})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo de Movimiento *</label>
-                                        <select
-                                            value={form.type}
-                                            onChange={e => setForm({ ...form, type: e.target.value })}
-                                            required
-                                            className="appearance-none w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
-                                        >
-                                            <option value="entrada">Entrada al inventario (+)</option>
-                                            <option value="salida">Salida del inventario (-)</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad *</label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="10000"
-                                            step="1"
-                                            value={form.quantity}
-                                            onChange={e => setForm({ ...form, quantity: e.target.value })}
-                                            required
-                                            placeholder="Ej. 10"
-                                            className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm ${stockWarning ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-200'}`}
-                                        />
-                                        {stockWarning && (
-                                            <span className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
-                                                {icons.warning} {stockWarning}
-                                            </span>
+                                    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Producto *</label>
+                                                <select
+                                                    value={form.product_id}
+                                                    onChange={e => setForm({ ...form, product_id: e.target.value })}
+                                                    required
+                                                    className="appearance-none w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                                >
+                                                    <option value="">Selecciona un producto...</option>
+                                                    {products.map(p => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.name} (Stock actual: {p.stock})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo de Movimiento *</label>
+                                                <select
+                                                    value={form.type}
+                                                    onChange={e => setForm({ ...form, type: e.target.value })}
+                                                    required
+                                                    className="appearance-none w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                                >
+                                                    <option value="entrada">Entrada al inventario (+)</option>
+                                                    <option value="salida">Salida del inventario (-)</option>
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad *</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="10000"
+                                                    step="1"
+                                                    value={form.quantity}
+                                                    onChange={e => setForm({ ...form, quantity: e.target.value })}
+                                                    required
+                                                    placeholder="Ej. 10"
+                                                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm ${stockWarning ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-200'}`}
+                                                />
+                                                {stockWarning && (
+                                                    <span className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                                                        {icons.warning} {stockWarning}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nota u Observación</label>
+                                                <input
+                                                    type="text"
+                                                    value={form.note}
+                                                    onChange={e => setForm({ ...form, note: e.target.value })}
+                                                    placeholder="Opcional..."
+                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {formError && (
+                                            <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold border border-rose-100 flex items-center gap-3">
+                                                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                {formError}
+                                            </div>
                                         )}
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nota u Observación</label>
-                                        <input
-                                            type="text"
-                                            value={form.note}
-                                            onChange={e => setForm({ ...form, note: e.target.value })}
-                                            placeholder="Opcional..."
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
-                                        />
-                                    </div>
-                                </div>
 
-                                {formError && (
-                                    <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold border border-rose-100 flex items-center gap-3">
-                                        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                        {formError}
-                                    </div>
-                                )}
-
-                                <div className="mt-4 flex justify-center md:justify-end">
-                                    <button
-                                        type="submit"
-                                        disabled={formLoading}
-                                        className="w-full md:w-auto bg-indigo-600 text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:hover:shadow-indigo-600/20 flex items-center justify-center gap-2"
-                                    >
-                                        {formLoading && <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
-                                        {formLoading ? 'Procesando...' : 'Confirmar Registro'}
-                                    </button>
-                                </div>
-                            </form>
+                                        <div className="mt-4 flex justify-center md:justify-end">
+                                            <button
+                                                type="submit"
+                                                disabled={formLoading}
+                                                className="w-full md:w-auto bg-indigo-600 text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:hover:shadow-indigo-600/20 flex items-center justify-center gap-2"
+                                            >
+                                                {formLoading && <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                                                {formLoading ? 'Procesando...' : 'Confirmar Registro'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}

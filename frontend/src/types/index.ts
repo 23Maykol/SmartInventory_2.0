@@ -3,6 +3,7 @@ export interface User {
     name: string
     email: string
     role: 'admin' | 'employee' | 'super_admin'
+    branch_id?: number | null
 }
 
 export interface Product {
