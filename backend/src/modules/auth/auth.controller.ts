@@ -37,6 +37,24 @@ export class AuthController {
         }
     }
 
+    googleLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const { credential } = req.body;
+            if (!credential) {
+                res.status(400).json({ ok: false, message: 'Falta el token de Google' });
+                return;
+            }
+            const result = await this.service.googleLogin(credential);
+            res.status(200).json({
+                ok: true,
+                message: 'Login con Google exitoso',
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     me = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
             res.status(200).json({

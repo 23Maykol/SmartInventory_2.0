@@ -38,5 +38,9 @@ export const env = {
         name: process.env.ADMIN_NAME || 'Administrador',
         email: process.env.ADMIN_EMAIL!,
         password: process.env.ADMIN_PASSWORD!,
+    },
+    
+    google: {
+        clientId: process.env.GOOGLE_CLIENT_ID || '732878725249-ji0si7douqtdko97k73bksss3pngsdki.apps.googleusercontent.com',
     }
 }

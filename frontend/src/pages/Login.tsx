@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
 import { useAuth } from '../hooks/useAuth'
 import type { AuthResponse } from '../types'
+import { GoogleLogin } from '@react-oauth/google'
 
 const Login = () => {
     const navigate = useNavigate()
@@ -25,6 +26,19 @@ const Login = () => {
             navigate('/dashboard')
         } catch (err: any) {
             setError(err.response?.data?.message || 'Credenciales inválidas')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleGoogleSuccess = async (credentialResponse: any) => {
+        setLoading(true)
+        try {
+            const res = await api.post<AuthResponse>('/auth/google', { credential: credentialResponse.credential })
+            login(res.data.data.token, res.data.data.user)
+            navigate('/dashboard')
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Error al autenticar con Google')
         } finally {
             setLoading(false)
         }
@@ -91,6 +105,22 @@ const Login = () => {
                         {loading ? 'Verificando...' : 'Iniciar Sesión'}
                     </button>
                 </form>
+
+                <div style={styles.divider}>
+                    <div style={styles.dividerLine}></div>
+                    <span style={styles.dividerText}>o continúa con</span>
+                    <div style={styles.dividerLine}></div>
+                </div>
+
+                <div style={styles.googleContainer}>
+                    <GoogleLogin
+                        onSuccess={handleGoogleSuccess}
+                        onError={() => setError('El inicio de sesión con Google falló')}
+                        useOneTap
+                        shape="pill"
+                        width="100%"
+                    />
+                </div>
 
                 <footer style={styles.footer}>
                     <p style={styles.footerText}>
@@ -239,6 +269,29 @@ const styles: Record<string, React.CSSProperties> = {
         color: '#4f46e5',
         textDecoration: 'none',
         fontWeight: 600
+    },
+    divider: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '1.5rem 0',
+        width: '100%',
+        gap: '10px'
+    },
+    dividerLine: {
+        flex: 1,
+        height: '1px',
+        backgroundColor: '#e2e8f0'
+    },
+    dividerText: {
+        color: '#94a3b8',
+        fontSize: '0.85rem',
+        fontWeight: 500
+    },
+    googleContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        width: '100%'
     }
 }
 

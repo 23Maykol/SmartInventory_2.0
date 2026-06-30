@@ -69,13 +69,17 @@ export class UserService {
     }
 
     async create(data: any) {
-        // data includes name, email, password, role
-        const hashed = await bcrypt.hash(data.password, 10)
+        // data includes name, email, password, role, auth_provider
+        let hashed = null;
+        if (data.password) {
+            hashed = await bcrypt.hash(data.password, 10)
+        }
         const userId = await this.repository.create({
             name: data.name,
             email: data.email,
             password: hashed,
             role: data.role ?? 'employee',
+            auth_provider: data.auth_provider ?? 'local'
         })
         const user = await this.repository.findById(userId)
         logger.info(`Usuario creado: ID ${userId}`)

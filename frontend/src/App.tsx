@@ -13,10 +13,14 @@ import NotFound from './pages/NotFound'
 import InDevelopment from './pages/InDevelopment'
 import Users from './pages/Users'
 import Movements from './pages/Movements'
+import { GoogleOAuthProvider } from '@react-oauth/google'
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '732878725249-ji0si7douqtdko97k73bksss3pngsdki.apps.googleusercontent.com'
 
 function App() {
   return (
-    <AuthProvider>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthProvider>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
@@ -55,6 +59,7 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>
+    </GoogleOAuthProvider>
   )
 }
 

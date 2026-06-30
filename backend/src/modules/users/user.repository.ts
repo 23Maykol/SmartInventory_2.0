@@ -100,10 +100,10 @@ export class UserRepository {
         return rows[0] || null
     }
 
-    async create(data: { name: string; email: string; password: string; role: string }): Promise<number> {
+    async create(data: { name: string; email: string; password?: string | null; role: string; auth_provider?: string }): Promise<number> {
         const [result] = await pool.execute<any>(
-            'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-            [data.name, data.email, data.password, data.role]
+            'INSERT INTO users (name, email, password, role, auth_provider) VALUES (?, ?, ?, ?, ?)',
+            [data.name, data.email, data.password || null, data.role, data.auth_provider || 'local']
         )
         return result.insertId
     }

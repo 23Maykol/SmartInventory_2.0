@@ -47,7 +47,9 @@ export const createUserSchema = z.object({
         .regex(/[A-Z]/, 'Debe contener al menos una letra mayúscula')
         .regex(/[a-z]/, 'Debe contener al menos una letra minúscula')
         .regex(/[0-9]/, 'Debe contener al menos un número')
-        .regex(/[^A-Za-z0-9]/, 'Debe contener al menos un carácter especial (!@#$%...)'),
+        .regex(/[^A-Za-z0-9]/, 'Debe contener al menos un carácter especial (!@#$%...)')
+        .optional(),
+    auth_provider: z.enum(['local', 'google']).default('local'),
     role: z.enum(['super_admin', 'admin', 'employee']).default('employee'),
     branch_id: z.number().int().positive().nullable().optional()
 });

@@ -6,14 +6,17 @@ import { AppError } from '../../middleware/error.middleware'
 import { env } from '../../config/env'
 import { logger } from '../../config/logger'
 import { UserService } from '../users/user.service'
+import { OAuth2Client } from 'google-auth-library'
 
 export class AuthService {
     private authRepository: AuthRepository
     private userService: UserService
+    private googleClient: OAuth2Client
 
     constructor() {
         this.authRepository = new AuthRepository()
         this.userService = new UserService()
+        this.googleClient = new OAuth2Client(env.google.clientId)
     }
 
     // Create initial admin (super_admin) if not exists
@@ -72,6 +75,60 @@ export class AuthService {
                 role: user.role,
                 branch_id: user.branch_id ?? null,
             },
+        }
+    }
+
+    async googleLogin(idToken: string) {
+        try {
+            const ticket = await this.googleClient.verifyIdToken({
+                idToken,
+                audience: env.google.clientId,
+            });
+            const payload = ticket.getPayload();
+            if (!payload || !payload.email) {
+                throw new AppError(400, 'Token de Google inválido');
+            }
+
+            const { email, name } = payload;
+
+            let user = await this.authRepository.findByEmail(email);
+
+            if (!user) {
+                // Registrar usuario nuevo vía Google
+                await this.userService.create({
+                    name: name || 'Usuario',
+                    email,
+                    password: '',
+                    role: 'employee',
+                    auth_provider: 'google'
+                });
+                
+                user = await this.authRepository.findByEmail(email);
+                if (!user) throw new AppError(500, 'Error al crear usuario con Google');
+                logger.info(`✅ Nuevo usuario registrado vía Google: ${email}`);
+            } else {
+                logger.info(`✅ Login exitoso vía Google: ${email}`);
+            }
+
+            const token = jwt.sign(
+                { id: user.id, email: user.email, role: user.role, branch_id: user.branch_id ?? null },
+                env.jwt.secret,
+                { expiresIn: env.jwt.expiresIn as any }
+            )
+
+            return {
+                token,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    branch_id: user.branch_id ?? null,
+                },
+            }
+        } catch (error) {
+            logger.error(`Error verificando token de Google: ${error}`);
+            throw new AppError(401, 'Autenticación con Google fallida');
         }
     }
 }

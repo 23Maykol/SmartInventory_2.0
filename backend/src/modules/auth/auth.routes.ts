@@ -11,6 +11,7 @@ const controller = new AuthController()
 
 router.post('/register', authLimiter, validate(createUserSchema), controller.register)
 router.post('/login', authLimiter, validate(loginSchema), controller.login)
+router.post('/google', authLimiter, controller.googleLogin)
 router.get('/me', authenticate, controller.me)
 
 export default router
