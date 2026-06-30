@@ -63,4 +63,10 @@ export class ProductService {
         await this.repository.softDelete(id)
         logger.info(`Producto eliminado: ID ${id}`)
     }
+
+    async traceUnit(serialCode: string) {
+        const trace = await this.repository.traceUnit(serialCode)
+        if (!trace) throw new AppError(404, 'No se encontró ninguna unidad con ese código de serie')
+        return trace
+    }
 }

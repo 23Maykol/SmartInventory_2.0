@@ -12,5 +12,6 @@ router.use(authenticate)
 router.get('/', controller.getAll)
 router.post('/', authorize('admin', 'employee'), validate(createMovementSchema), controller.create)
 router.get('/product/:productId', controller.getByProduct)
+router.get('/:id/ticket', controller.getTicket)
 
 export default router

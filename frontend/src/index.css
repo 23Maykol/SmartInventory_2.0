@@ -165,3 +165,16 @@ select {
   flex-direction: column;
   min-height: 0;
 }
+
+/* ── Print styles for ticket ─────────────────────────── */
+@media print {
+  body * { visibility: hidden; }
+  #ticket-print-area, #ticket-print-area * { visibility: visible; }
+  #ticket-print-area {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    padding: 2rem;
+    background: white;
+  }
+}

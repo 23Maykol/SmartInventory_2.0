@@ -80,4 +80,29 @@ export class MovementRepository {
         )
         return rows
     }
+
+    async getTicket(movementId: number): Promise<any> {
+        const [movRows] = await pool.execute<any[]>(
+            `SELECT m.id, m.type, m.quantity, m.note, m.created_at,
+                    p.name as product_name, p.category,
+                    u.name as user_name
+             FROM inventory_movements m
+             JOIN products p ON m.product_id = p.id
+             JOIN users u ON m.user_id = u.id
+             WHERE m.id = ? LIMIT 1`,
+            [movementId]
+        );
+        const movement = movRows[0];
+        if (!movement) return null;
+
+        const [unitRows] = await pool.execute<any[]>(
+            `SELECT pu.serial_code, pu.status
+             FROM movement_units mu
+             JOIN product_units pu ON mu.unit_id = pu.id
+             WHERE mu.movement_id = ?`,
+            [movementId]
+        );
+
+        return { movement, units: unitRows };
+    }
 }

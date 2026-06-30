@@ -51,4 +51,13 @@ export class MovementController {
             next(error)
         }
     }
+
+    getTicket = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const ticket = await this.service.getTicket(Number(req.params.id))
+            res.status(200).json({ ok: true, data: ticket })
+        } catch (error) {
+            next(error)
+        }
+    }
 }

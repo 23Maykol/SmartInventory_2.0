@@ -10,6 +10,7 @@ const controller = new ProductController()
 router.use(authenticate)
 
 router.get('/', controller.getAll)
+router.get('/trace/:serial_code', controller.traceUnit)
 router.get('/:id', controller.getById)
 router.post('/', authorize('admin'), validate(createProductSchema), controller.create)
 router.put('/:id', authorize('admin'), validate(updateProductSchema), controller.update)
