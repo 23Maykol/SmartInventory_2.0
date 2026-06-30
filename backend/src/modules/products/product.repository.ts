@@ -91,4 +91,31 @@ export class ProductRepository {
         const [rows] = await pool.execute<any[]>(query, values)
         return rows.length > 0
     }
+
+    async traceUnit(serialCode: string): Promise<any> {
+        const [unitRows] = await pool.execute<any[]>(
+            `SELECT u.*, p.name as product_name, p.category 
+             FROM product_units u 
+             JOIN products p ON u.product_id = p.id 
+             WHERE u.serial_code = ? LIMIT 1`,
+            [serialCode]
+        );
+        const unit = unitRows[0];
+        if (!unit) return null;
+
+        const [movementRows] = await pool.execute<any[]>(
+            `SELECT m.id, m.type, m.quantity, m.created_at, usr.name as user_name 
+             FROM movement_units mu
+             JOIN inventory_movements m ON mu.movement_id = m.id
+             JOIN users usr ON m.user_id = usr.id
+             WHERE mu.unit_id = ?
+             ORDER BY m.created_at ASC`,
+            [unit.id]
+        );
+
+        return {
+            unit,
+            history: movementRows
+        };
+    }
 }

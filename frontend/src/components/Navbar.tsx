@@ -32,6 +32,12 @@ const Icons = {
       <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
     </svg>
   ),
+  trace: (color: string) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+  ),
   users: (color: string) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -121,6 +127,7 @@ const Navbar = () => {
                         <div className="px-3 pt-4 pb-2 text-[10px] font-black text-slate-300 uppercase tracking-widest mt-2">Gestión</div>
                         {renderLink('/products', 'Inventario', Icons.products)}
                         {renderLink('/movements', 'Movimientos', Icons.movements)}
+                        {renderLink('/traceability', 'Trazabilidad', Icons.trace)}
                     </>
                 )}
                 

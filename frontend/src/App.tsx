@@ -13,6 +13,7 @@ import NotFound from './pages/NotFound'
 import InDevelopment from './pages/InDevelopment'
 import Users from './pages/Users'
 import Movements from './pages/Movements'
+import Traceability from './pages/Traceability'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '732878725249-ji0si7douqtdko97k73bksss3pngsdki.apps.googleusercontent.com'
@@ -50,6 +51,9 @@ function App() {
         } />
         <Route path="/movements" element={
           <PrivateRoute excludeSuperAdmin={true}><Movements /></PrivateRoute>
+        } />
+        <Route path="/traceability" element={
+          <PrivateRoute excludeSuperAdmin={true}><Traceability /></PrivateRoute>
         } />
         <Route path="/users" element={
           <PrivateRoute adminOnly={true}><Users /></PrivateRoute>

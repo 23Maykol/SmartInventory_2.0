@@ -65,4 +65,13 @@ export class ProductController {
             next(error)
         }
     }
+
+    traceUnit = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const trace = await this.service.traceUnit(String(req.params.serial_code))
+            res.status(200).json({ ok: true, data: trace })
+        } catch (error) {
+            next(error)
+        }
+    }
 }
