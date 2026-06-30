@@ -59,8 +59,8 @@ export class UserService {
         return updated
     }
 
-    async getStats() {
-        return await this.repository.getStats()
+    async getStats(branchId?: number) {
+        return await this.repository.getStats(branchId)
     }
 
     async findByEmail(email: string) {

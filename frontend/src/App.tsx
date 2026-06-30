@@ -4,7 +4,10 @@ import PrivateRoute from './components/PrivateRoute'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
+import DashboardCharts from './pages/DashboardCharts'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
+import SuperAdminCharts from './pages/SuperAdminCharts'
+import SuperAdminBranches from './pages/SuperAdminBranches'
 import Products from './pages/Products'
 import NotFound from './pages/NotFound'
 import InDevelopment from './pages/InDevelopment'
@@ -23,9 +26,19 @@ function App() {
           <PrivateRoute><Dashboard /></PrivateRoute>
         } />
 
+        <Route path="/dashboard/charts" element={
+          <PrivateRoute adminOnly={true}><DashboardCharts /></PrivateRoute>
+        } />
+
         {/* Super Admin exclusive dashboard */}
         <Route path="/super-dashboard" element={
           <PrivateRoute superAdminOnly={true}><SuperAdminDashboard /></PrivateRoute>
+        } />
+        <Route path="/super-dashboard/charts" element={
+          <PrivateRoute superAdminOnly={true}><SuperAdminCharts /></PrivateRoute>
+        } />
+        <Route path="/super-dashboard/branches" element={
+          <PrivateRoute superAdminOnly={true}><SuperAdminBranches /></PrivateRoute>
         } />
 
         <Route path="/products" element={

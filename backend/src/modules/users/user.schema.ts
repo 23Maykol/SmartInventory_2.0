@@ -24,7 +24,9 @@ export const listUsersSchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(10),
     search: z.string().trim().optional(),
-    role: z.enum(['super_admin', 'admin', 'employee']).optional()
+    role: z.enum(['super_admin', 'admin', 'employee']).optional(),
+    branch_id: z.coerce.number().int().optional(),
+    branch_status: z.enum(['assigned', 'unassigned', 'all']).optional().default('all')
 })
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>

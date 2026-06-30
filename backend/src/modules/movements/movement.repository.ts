@@ -4,7 +4,7 @@ import { CreateMovementInput, ListMovementsInput } from './movement.schema'
 
 export class MovementRepository {
     async findAll(params: ListMovementsInput): Promise<{ data: any[], total: number }> {
-        const { page, limit, product_id, type, user_id } = params
+        const { page, limit, product_id, type, user_id, branch_id } = params
         const offset = (page - 1) * limit
 
         let whereClause = 'WHERE 1=1'
@@ -29,10 +29,16 @@ export class MovementRepository {
             dataValues.push(user_id)
         }
 
+        if (branch_id) {
+            whereClause += ' AND u.branch_id = ?'
+            countValues.push(branch_id)
+            dataValues.push(branch_id)
+        }
+
         dataValues.push(limit, offset)
 
         const [countRows] = await pool.query<any[]>(
-            `SELECT COUNT(*) as total FROM inventory_movements m ${whereClause}`,
+            `SELECT COUNT(*) as total FROM inventory_movements m JOIN users u ON m.user_id = u.id ${whereClause}`,
             countValues
         )
 
@@ -40,7 +46,7 @@ export class MovementRepository {
             `SELECT 
         m.id, m.type, m.quantity, m.note, m.created_at,
         p.id as product_id, p.name as product_name,
-        u.id as user_id, u.name as user_name
+        u.id as user_id, u.name as user_name, u.branch_id
        FROM inventory_movements m
        JOIN products p ON m.product_id = p.id
        JOIN users u ON m.user_id = u.id
@@ -52,6 +58,7 @@ export class MovementRepository {
 
         return { data: rows, total: countRows[0].total }
     }
+
 
     async create(data: CreateMovementInput, userId: number): Promise<number> {
         const [result] = await pool.execute<any>(

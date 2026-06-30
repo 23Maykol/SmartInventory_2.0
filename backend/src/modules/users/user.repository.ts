@@ -23,6 +23,18 @@ export class UserRepository {
             dataValues.push(role)
         }
 
+        if (params.branch_id) {
+            whereClause += ' AND u.branch_id = ?'
+            countValues.push(params.branch_id)
+            dataValues.push(params.branch_id)
+        }
+
+        if (params.branch_status === 'assigned') {
+            whereClause += ' AND u.branch_id IS NOT NULL'
+        } else if (params.branch_status === 'unassigned') {
+            whereClause += ' AND u.branch_id IS NULL'
+        }
+
         dataValues.push(limit, offset)
 
         const [countRows] = await pool.query<any[]>(
@@ -96,8 +108,8 @@ export class UserRepository {
         return result.insertId
     }
 
-    async getStats(): Promise<any> {
-        const [rows] = await pool.execute<any[]>(`
+    async getStats(branchId?: number): Promise<any> {
+        let query = `
       SELECT
         COUNT(*) as total,
         SUM(role = 'admin') as admins,
@@ -105,7 +117,15 @@ export class UserRepository {
         SUM(is_active = 1) as active,
         SUM(is_active = 0) as inactive
       FROM users
-    `)
+    `
+        const values: any[] = []
+
+        if (branchId) {
+            query += ' WHERE branch_id = ?'
+            values.push(branchId)
+        }
+
+        const [rows] = await pool.execute<any[]>(query, values)
         return rows[0]
     }
 }

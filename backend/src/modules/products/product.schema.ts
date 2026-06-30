@@ -1,29 +1,36 @@
 import { z } from 'zod'
 
+const noHtml = /^[^<>]*$/
+
 export const createProductSchema = z.object({
     name: z.string()
         .min(2, 'El nombre debe tener al menos 2 caracteres')
         .max(100, 'El nombre no puede superar 100 caracteres')
-        .trim(),
+        .trim()
+        .regex(noHtml, 'El nombre no puede contener caracteres HTML'),
 
     stock: z.number()
         .int('El stock debe ser un número entero')
         .min(0, 'El stock no puede ser negativo')
+        .max(999_999, 'El stock inicial no puede superar 999.999 unidades')
         .default(0),
 
     price: z.number()
         .positive('El precio debe ser mayor a 0')
+        .max(99_999_999, 'El precio no puede superar 99.999.999')
         .multipleOf(0.01, 'El precio no puede tener más de 2 decimales'),
 
     category: z.string()
         .max(100, 'La categoría no puede superar 100 caracteres')
         .trim()
+        .regex(noHtml, 'La categoría no puede contener caracteres HTML')
         .optional()
         .nullable(),
 
     description: z.string()
         .max(500, 'La descripción no puede superar 500 caracteres')
         .trim()
+        .regex(noHtml, 'La descripción no puede contener caracteres HTML')
         .optional()
         .nullable()
 })

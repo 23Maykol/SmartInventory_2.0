@@ -1,343 +1,389 @@
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
-import type { DashboardStats } from '../types';
+import type { DashboardStats, Product } from '../types';
 
-// SVGs helper
 const icons = {
-    products: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>,
-    store: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
-    warning: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
-    users: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
-    sync: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>,
-    up: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
-    down: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>,
-    check: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
-    report: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+    products: <svg className="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>,
+    store: <svg className="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
+    users: <svg className="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
+    movements: <svg className="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>,
+    warning: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
+    download: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>,
 }
 
+const WavePath1 = "M0,10 C30,20 60,0 100,10 L100,40 L0,40 Z";
+const WavePath2 = "M0,15 C40,-5 60,30 100,10 L100,40 L0,40 Z";
+const WavePath3 = "M0,20 C30,30 70,-10 100,15 L100,40 L0,40 Z";
+const WavePath4 = "M0,20 C20,-5 40,30 70,10 C85,-5 95,5 100,20 L100,40 L0,40 Z";
+
 const Dashboard: FC = () => {
-    const { user, isAdmin, isSuperAdmin } = useAuth()
-    const navigate = useNavigate()
-    const [searchParams] = useSearchParams()
-    const [stats, setStats] = useState<DashboardStats | null>(null)
-    const [loading, setLoading] = useState(true)
+    const { user, isAdmin, isSuperAdmin } = useAuth();
+    const navigate = useNavigate();
+    const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const activeTab = searchParams.get('tab') || 'global'
+    // Employee specific states
+    const [products, setProducts] = useState<Product[]>([]);
+    const [form, setForm] = useState({
+        product_id: '',
+        type: 'entrada',
+        quantity: '',
+        note: ''
+    });
+    const [formError, setFormError] = useState('');
+    const [formLoading, setFormLoading] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
 
-    // Super admin has their own dedicated dashboard
+    const selectedProduct = products.find(p => p.id.toString() === form.product_id);
+    const stockWarning = form.type === 'salida' && form.quantity !== '' && selectedProduct
+        ? Number(form.quantity) > selectedProduct.stock
+            ? `Stock insuficiente: solo hay ${selectedProduct.stock} unidades disponibles.`
+            : null
+        : null;
+
     useEffect(() => {
         if (isSuperAdmin) {
-            navigate('/super-dashboard', { replace: true })
+            navigate('/super-dashboard', { replace: true });
         }
-    }, [isSuperAdmin, navigate])
+    }, [isSuperAdmin, navigate]);
 
     useEffect(() => {
         if (isAdmin && !isSuperAdmin) {
             api.get('/stats/dashboard')
                 .then(res => setStats(res.data.data))
                 .catch(() => { })
-                .finally(() => setLoading(false))
+                .finally(() => setLoading(false));
         } else if (!isSuperAdmin) {
-            setLoading(false)
+            api.get('/products?limit=100').then(res => setProducts(res.data.data)).finally(() => setLoading(false));
         }
-    }, [isAdmin, isSuperAdmin])
+    }, [isAdmin, isSuperAdmin]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setFormError('');
+        if (stockWarning) {
+            setFormError(stockWarning);
+            return;
+        }
+        const qty = Number(form.quantity);
+        if (!Number.isInteger(qty) || qty < 1 || qty > 10_000) {
+            setFormError('La cantidad debe ser un número entero entre 1 y 10.000.');
+            return;
+        }
+        setFormLoading(true);
+        try {
+            await api.post('/movements', {
+                product_id: Number(form.product_id),
+                type: form.type,
+                quantity: Number(form.quantity),
+                note: form.note || null
+            });
+            setSuccessMsg('Movimiento registrado exitosamente');
+            setForm({ product_id: '', type: 'entrada', quantity: '', note: '' });
+            // Actualizar stock
+            api.get('/products?limit=100').then(res => setProducts(res.data.data));
+            setTimeout(() => setSuccessMsg(''), 3000);
+        } catch (err: any) {
+            setFormError(err.response?.data?.message || 'Error al registrar movimiento');
+        } finally {
+            setFormLoading(false);
+        }
+    };
+
+    const formatNumber = (num: number) => new Intl.NumberFormat('es-ES').format(num);
+
+    const topCards = [
+        { title: 'Productos Activos', value: stats ? formatNumber(stats.products.active_products) : '0', icon: icons.products, badge: '+12.5%', badgeColor: 'text-indigo-600 bg-indigo-50 border-indigo-100', wavePath: WavePath1, waveColor: '#e0e7ff' },
+        { title: 'Stock Total', value: stats ? formatNumber(stats.products.total_stock) : '0', icon: icons.store, badge: 'Estable', badgeColor: 'text-slate-600 bg-slate-50 border-slate-200', wavePath: WavePath2, waveColor: '#f1f5f9' },
+        { title: 'Usuarios Totales', value: stats ? formatNumber(stats.users.total_users) : '0', icon: icons.users, badge: 'Activos', badgeColor: 'text-blue-600 bg-blue-50 border-blue-100', wavePath: WavePath3, waveColor: '#dbeafe' },
+        { title: 'Movimientos Totales', value: stats ? formatNumber(stats.movements.total_movements) : '0', icon: icons.movements, badge: 'General', badgeColor: 'text-rose-600 bg-rose-50 border-rose-100', wavePath: WavePath4, waveColor: '#fecdd3' },
+    ];
 
     return (
         <div className="page-container">
             <Navbar />
-            <div className="main-content">
-                <div style={styles.welcome}>
-                    <h1 style={styles.title}>Bienvenido, {user?.name}</h1>
-                    <p style={styles.subtitle}>
-                        Rol: <strong style={{ color: '#0f172a' }}>{user?.role === 'admin'
-                            ? 'Administrador'
-                            : user?.role === 'super_admin'
-                                ? 'Super Admin'
-                                : 'Empleado'
-                        }
-                        </strong>
 
-                    </p>
+            <div className="main-content">
+                {/* Header */}
+                <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-0.5">
+                            {user?.role === 'admin' ? 'Panel de Admin' : 'Panel de Control'}
+                        </h1>
+                        <p className="text-xs text-slate-500 font-medium">
+                            Vista general • {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                    </div>
                 </div>
 
-                {/* Stats para admin */}
-                {isAdmin && !loading && stats && activeTab === 'global' && (
-                    <>
-                        {/* Métricas principales */}
-                        <div style={styles.statsGrid}>
-                            {[
-                                { label: 'Productos Activos', value: stats.products.active_products, icon: icons.products, color: '#4f46e5', bg: '#eef2ff' },
-                                { label: 'Stock Total', value: stats.products.total_stock, icon: icons.store, color: '#059669', bg: '#ecfdf5' },
-                                { label: 'Stock Bajo', value: stats.products.low_stock_count, icon: icons.warning, color: '#d97706', bg: '#fffbeb' },
-                                { label: 'Total Usuarios', value: stats.users.total_users, icon: icons.users, color: '#7c3aed', bg: '#f5f3ff' },
-                                { label: 'Total Movimientos', value: stats.movements.total_movements, icon: icons.sync, color: '#2563eb', bg: '#eff6ff' },
-                                { label: 'Entradas', value: stats.movements.total_entradas, icon: icons.up, color: '#10b981', bg: '#d1fae5' },
-                                { label: 'Salidas', value: stats.movements.total_salidas, icon: icons.down, color: '#e11d48', bg: '#ffe4e6' },
-                                { label: 'Usuarios Activos', value: stats.users.active_users, icon: icons.check, color: '#0d9488', bg: '#ccfbf1' },
-                            ].map(stat => (
-                                <div key={stat.label} className="card" style={styles.statCard}>
-                                    <div style={{ ...styles.statIconWrapper, color: stat.color, background: stat.bg }}>
-                                        {stat.icon}
+                {isAdmin && !loading && stats && (
+                    <div className="flex flex-col gap-4 flex-1 min-h-0">
+
+                        {/* 4 Cards Grid — height adapts via flex */}
+                        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 flex-shrink-0">
+                            {topCards.map((card, idx) => (
+                                <div key={idx} className="bg-white rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden flex flex-col hover:shadow-md transition-shadow" style={{ minHeight: '110px' }}>
+                                    <div className="p-4 flex-1 flex flex-col justify-between z-10">
+                                        <div className="flex justify-between items-start">
+                                            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                {card.icon}
+                                            </div>
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${card.badgeColor}`}>
+                                                {card.badge}
+                                            </span>
+                                        </div>
+                                        <div className="mt-2">
+                                            <p className="text-slate-500 text-[10px] font-semibold uppercase tracking-wider mb-0.5">{card.title}</p>
+                                            <h3 className="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                                                {card.value}
+                                            </h3>
+                                        </div>
                                     </div>
-                                    <div style={{ ...styles.statValue, color: '#0f172a' }}>{stat.value}</div>
-                                    <div style={styles.statLabel}>{stat.label}</div>
+                                    <svg className="absolute bottom-0 left-0 w-full h-[50px]" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                        <path d={card.wavePath} fill={card.waveColor} />
+                                    </svg>
                                 </div>
                             ))}
                         </div>
-                    </>
-                )}
 
-                {isAdmin && !loading && stats && activeTab === 'charts' && (
-                    <>
-                        <div style={styles.twoCol}>
-                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={styles.cardTitle}>Movimientos</h3>
+                        {/* Main area — stretches to fill remaining space */}
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 flex-1 min-h-0">
+
+                            {/* Stock Alerts */}
+                            <div className="xl:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col min-h-0">
+                                <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
+                                    <h2 className="text-sm font-bold text-slate-800">Alertas de Stock</h2>
+                                    <span className="w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+                                        {stats.lowStockProducts.length}
+                                    </span>
                                 </div>
-                                <div style={styles.chartContainer}>
-                                    <ResponsiveContainer width="100%" height={250}>
-                                        <BarChart
-                                            data={[
-                                                { name: 'Entradas', value: stats?.movements?.total_entradas ?? 0 },
-                                                { name: 'Salidas', value: stats?.movements?.total_salidas ?? 0 }
-                                            ]}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="name" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Bar dataKey="value" fill="#4f46e5" />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                <div className="p-4 flex-1 overflow-y-auto flex flex-col gap-3">
+                                    {stats.lowStockProducts.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-400 text-sm font-medium">
+                                            No hay alertas críticas.
+                                        </div>
+                                    ) : (
+                                        stats.lowStockProducts.map((p) => (
+                                            <div key={p.id} className="rounded-xl border border-rose-100 bg-white overflow-hidden shadow-sm relative transition-transform hover:-translate-y-0.5">
+                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
+                                                <div className="p-3 pl-4">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <div className="flex items-center gap-1 text-rose-600 text-[9px] font-bold uppercase tracking-wider">
+                                                            {icons.warning} STOCK CRÍTICO
+                                                        </div>
+                                                        <span className="text-slate-400 text-[10px]">Ahora</span>
+                                                    </div>
+                                                    <h4 className="text-xs font-bold text-slate-800 mb-1 truncate">{p.name}</h4>
+                                                    <p className="text-[10px] text-slate-500 mb-2">
+                                                        Actual: {p.stock} uds. | Mín: 10 uds.
+                                                    </p>
+                                                    <button className="text-rose-600 text-[10px] font-bold flex items-center gap-1 hover:text-rose-700 transition-colors">
+                                                        Reabastecer
+                                                        <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div className="px-4 py-2 border-t border-slate-100 text-center flex-shrink-0">
+                                    <button className="text-indigo-600 text-xs font-bold hover:text-indigo-700 transition-colors">
+                                        Ver todas las alertas
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Stock bajo */}
-                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ color: '#d97706', display: 'flex' }}>{icons.warning}</span>
-                                    <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>
-                                        Productos con Stock Bajo
-                                    </h3>
+                            {/* Recent Movements Table */}
+                            <div className="xl:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col min-h-0">
+                                <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-800">Movimientos Recientes</h2>
+                                        <p className="text-[10px] font-medium text-slate-500 mt-0.5">Resumen general del sistema</p>
+                                    </div>
+                                    <button className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors">
+                                        {icons.download} Exportar
+                                    </button>
                                 </div>
-{stats.lowStockProducts.length > 0 && (
-  <ResponsiveContainer width="100%" height={250}>
-    <BarChart data={stats.lowStockProducts.map(p => ({ name: p.name, stock: p.stock }))}>
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="name" />
-      <YAxis />
-      <Tooltip />
-      <Bar dataKey="stock" fill="#ef4444" />
-    </BarChart>
-  </ResponsiveContainer>
-)}
 
-                                {stats.lowStockProducts.length === 0 ? (
-                                    <p style={styles.empty}>No hay productos con stock bajo</p>
-                                ) : (
-                                    <table style={styles.table}>
-                                        <thead>
-                                            <tr style={styles.tableHead}>
-                                                <th style={styles.th}>Producto</th>
-                                                <th style={styles.th}>Categoría</th>
-                                                <th style={styles.th}>Stock</th>
+                                <div className="overflow-auto flex-1 min-h-0">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead className="sticky top-0">
+                                            <tr className="bg-slate-50 border-b border-slate-100">
+                                                <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-4">Producto</th>
+                                                <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tipo</th>
+                                                <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cant.</th>
+                                                <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Usuario</th>
+                                                <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
+                                                <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider pr-4">Nota</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                            {stats.lowStockProducts.map(p => (
-                                                <tr key={p.id} style={styles.tr}>
-                                                    <td style={styles.td}><strong>{p.name}</strong></td>
-                                                    <td style={styles.td}>
-                                                        <span style={{ ...styles.categoryBadge }}>
-                                                            {p.category || '—'}
+                                        <tbody className="divide-y divide-slate-100">
+                                            {stats.recentMovements && stats.recentMovements.slice(0, 8).map((m) => (
+                                                <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="p-3 pl-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-7 h-7 rounded bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
+                                                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect></svg>
+                                                            </div>
+                                                            <span className="text-xs font-bold text-slate-700 truncate max-w-[120px]">{m.product_name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border ${m.type === 'entrada' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                                            {m.type === 'entrada' ? '↓ ENT' : '↑ SAL'}
                                                         </span>
                                                     </td>
-                                                    <td style={styles.td}>
-                                                        <span style={{
-                                                            ...styles.badge,
-                                                            background: p.stock === 0 ? '#ffe4e6' : '#fef3c7',
-                                                            color: p.stock === 0 ? '#e11d48' : '#d97706'
-                                                        }}>
-                                                            {p.stock === 0 ? 'Agotado' : p.stock}
+                                                    <td className="p-3 text-xs font-bold text-slate-800">
+                                                        {m.type === 'entrada' ? '+' : '-'}{m.quantity}
+                                                    </td>
+                                                    <td className="p-3 text-xs font-medium text-slate-500 truncate max-w-[80px]">{m.user_name}</td>
+                                                    <td className="p-3 text-xs font-medium text-slate-500 whitespace-nowrap">
+                                                        {new Date(m.created_at).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    </td>
+                                                    <td className="p-3 pr-4">
+                                                        <span className="text-[10px] text-slate-500 truncate block max-w-[80px]">
+                                                            {m.note || 'Registrado'}
                                                         </span>
                                                     </td>
                                                 </tr>
                                             ))}
+                                            {(!stats.recentMovements || stats.recentMovements.length === 0) && (
+                                                <tr>
+                                                    <td colSpan={6} className="p-8 text-center text-slate-400 text-sm">
+                                                        Sin movimientos recientes.
+                                                    </td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
-                                )}
+                                </div>
+
+                                <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between flex-shrink-0">
+                                    <span className="text-[10px] font-medium text-slate-500">
+                                        {stats.recentMovements ? Math.min(stats.recentMovements.length, 8) : 0} de {stats.movements.total_movements} movimientos
+                                    </span>
+                                    <div className="flex gap-1">
+                                        <button className="w-7 h-7 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:bg-slate-50">
+                                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                        </button>
+                                        <button className="w-7 h-7 flex items-center justify-center rounded bg-indigo-600 text-white font-bold text-xs">1</button>
+                                        <button className="w-7 h-7 flex items-center justify-center rounded border border-slate-200 text-slate-400 hover:bg-slate-50">
+                                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        {/* Top productos */}
-                        {stats && stats.topProducts.length > 0 && (
-                            <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
-                                <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ ...styles.cardTitle, marginBottom: 0 }}>Top Productos más Movidos</h3>
-                                </div>
-<ResponsiveContainer width="100%" height={250}>
-  <BarChart data={stats.topProducts.map(p => ({ name: p.name, movimientos: p.total_movimientos }))}>
-    <CartesianGrid strokeDasharray="3 3" />
-    <XAxis dataKey="name" />
-    <YAxis />
-    <Tooltip />
-    <Bar dataKey="movimientos" fill="#4f46e5" />
-  </BarChart>
-</ResponsiveContainer>
-                                <table style={styles.table}>
-                                    <thead>
-                                        <tr style={styles.tableHead}>
-                                            <th style={styles.th}>#</th>
-                                            <th style={styles.th}>Producto</th>
-                                            <th style={styles.th}>Categoría</th>
-                                            <th style={styles.th}>Total Movimientos</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {stats.topProducts.map((p, i) => (
-                                            <tr key={p.id} style={styles.tr}>
-                                                <td style={styles.td}>
-                                                    <div style={styles.rankBadge}>{i + 1}</div>
-                                                </td>
-                                                <td style={styles.td}><strong>{p.name}</strong></td>
-                                                <td style={styles.td}>
-                                                    <span style={styles.categoryBadge}>{p.category || '—'}</span>
-                                                </td>
-                                                <td style={styles.td}>
-                                                    <span style={{ ...styles.badge, background: '#eef2ff', color: '#4f46e5' }}>
-                                                        {p.total_movimientos} movs
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </>
+                    </div>
                 )}
 
+                {/* Vista para Empleados (no admin y no super admin) */}
+                {!isAdmin && !isSuperAdmin && !loading && (
+                    <div className="flex-1 flex flex-col items-center justify-center min-h-0 w-full max-w-4xl mx-auto px-4 sm:px-6 py-8">
+                        {successMsg && (
+                            <div className="mb-6 w-full p-4 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold border border-emerald-100 flex items-center gap-3 transform transition-all animate-fadeIn">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path></svg>
+                                </div>
+                                {successMsg}
+                            </div>
+                        )}
 
+                        <div className="w-full bg-white/90 backdrop-blur-xl border border-slate-100 rounded-2xl shadow-xl p-6 md:p-8 transform transition-all animate-fadeIn">
+                            <div className="mb-8 text-center">
+                                <h2 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">Registrar Movimiento</h2>
+                                <p className="text-slate-500 mt-2 text-sm">Registra una entrada o salida de productos disponibles en el inventario.</p>
+                            </div>
 
+                            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Producto *</label>
+                                        <select
+                                            value={form.product_id}
+                                            onChange={e => setForm({ ...form, product_id: e.target.value })}
+                                            required
+                                            className="appearance-none w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                        >
+                                            <option value="">Selecciona un producto...</option>
+                                            {products.map(p => (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.name} (Stock actual: {p.stock})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo de Movimiento *</label>
+                                        <select
+                                            value={form.type}
+                                            onChange={e => setForm({ ...form, type: e.target.value })}
+                                            required
+                                            className="appearance-none w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                        >
+                                            <option value="entrada">Entrada al inventario (+)</option>
+                                            <option value="salida">Salida del inventario (-)</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad *</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="10000"
+                                            step="1"
+                                            value={form.quantity}
+                                            onChange={e => setForm({ ...form, quantity: e.target.value })}
+                                            required
+                                            placeholder="Ej. 10"
+                                            className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm ${stockWarning ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-200'}`}
+                                        />
+                                        {stockWarning && (
+                                            <span className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
+                                                {icons.warning} {stockWarning}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nota u Observación</label>
+                                        <input
+                                            type="text"
+                                            value={form.note}
+                                            onChange={e => setForm({ ...form, note: e.target.value })}
+                                            placeholder="Opcional..."
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                {formError && (
+                                    <div className="p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold border border-rose-100 flex items-center gap-3">
+                                        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        {formError}
+                                    </div>
+                                )}
+
+                                <div className="mt-4 flex justify-center md:justify-end">
+                                    <button
+                                        type="submit"
+                                        disabled={formLoading}
+                                        className="w-full md:w-auto bg-indigo-600 text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-600/30 transition-all disabled:opacity-70 disabled:hover:shadow-indigo-600/20 flex items-center justify-center gap-2"
+                                    >
+                                        {formLoading && <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                                        {formLoading ? 'Procesando...' : 'Confirmar Registro'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
-    )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-    welcome: { marginBottom: '2rem' },
-    title: { color: '#0f172a', fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.4rem', letterSpacing: '-0.025em' },
-    subtitle: { color: '#64748b', fontSize: '1rem' },
-    statsGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-        gap: '1.25rem',
-        marginBottom: '2rem'
-    },
-    statCard: {
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '1.5rem',
-        border: '1px solid rgba(226, 232, 240, 0.6)'
-    },
-    statIconWrapper: {
-        width: '48px',
-        height: '48px',
-        borderRadius: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: '1rem'
-    },
-    statValue: { fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.2rem' },
-    statLabel: { color: '#64748b', fontSize: '0.85rem', fontWeight: 500 },
-    twoCol: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-        gap: '1.5rem',
-        marginBottom: '1.5rem'
-    },
-    cardTitle: { color: '#0f172a', marginBottom: '0', fontSize: '1.1rem', fontWeight: 700 },
-    table: { width: '100%', borderCollapse: 'collapse' },
-    tableHead: { background: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
-    th: {
-        padding: '0.8rem 1.5rem',
-        textAlign: 'left',
-        fontSize: '0.75rem',
-        color: '#64748b',
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em'
-    },
-    tr: {
-        transition: 'background-color 0.2s ease',
-        borderBottom: '1px solid #f1f5f9'
-    },
-    td: {
-        padding: '1rem 1.5rem',
-        fontSize: '0.9rem',
-        color: '#334155'
-    },
-    badge: {
-        padding: '0.3rem 0.8rem',
-        borderRadius: '20px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        display: 'inline-block'
-    },
-    categoryBadge: {
-        background: '#f1f5f9',
-        color: '#475569',
-        padding: '0.3rem 0.8rem',
-        borderRadius: '6px',
-        fontSize: '0.75rem',
-        fontWeight: 500
-    },
-    rankBadge: {
-        background: '#f1f5f9',
-        color: '#64748b',
-        width: '28px',
-        height: '28px',
-        borderRadius: '50%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontWeight: 700,
-        fontSize: '0.8rem'
-    },
-    empty: { color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center', padding: '2rem' },
-    grid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-        gap: '1.25rem'
-    },
-    cardLink: { textDecoration: 'none' },
-    quickCard: {
-        padding: '1.5rem',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        border: '1px solid rgba(226, 232, 240, 0.8)'
-    },
-    quickIcon: {
-        width: '48px',
-        height: '48px',
-        borderRadius: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: '1rem',
-        transition: 'transform 0.2s ease'
-    },
-    quickTitle: { color: '#0f172a', marginBottom: '0.4rem', fontSize: '1.1rem', fontWeight: 600 },
-    quickDesc: { color: '#64748b', fontSize: '0.85rem' }
-}
+    );
+};
 
 export default Dashboard;

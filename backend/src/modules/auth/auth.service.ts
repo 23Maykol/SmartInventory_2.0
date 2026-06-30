@@ -58,7 +58,7 @@ export class AuthService {
         const validPassword = await bcrypt.compare(data.password, user.password)
         if (!validPassword) throw new AppError(401, 'Credenciales incorrectas')
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
+            { id: user.id, email: user.email, role: user.role, branch_id: user.branch_id ?? null },
             env.jwt.secret,
             { expiresIn: env.jwt.expiresIn as any }
         )
@@ -70,6 +70,7 @@ export class AuthService {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                branch_id: user.branch_id ?? null,
             },
         }
     }

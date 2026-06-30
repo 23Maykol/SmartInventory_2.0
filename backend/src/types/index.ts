@@ -35,6 +35,7 @@ export interface JwtPayload {
     id: number
     email: string
     role: 'super_admin' | 'admin' | 'employee'
+    branch_id?: number | null
 }
 
 export interface ApiResponse<T = null> {

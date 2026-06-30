@@ -1,334 +1,421 @@
 import { useState, useEffect, useCallback, useContext } from 'react';
 import type { FC } from 'react';
-import api from '../api/axios'
-import Navbar from '../components/Navbar'
-import type { UserItem, UsersResponse, UserStats, Branch } from '../types'
-import { AuthContext } from '../context/AuthContext'
+import api from '../api/axios';
+import Navbar from '../components/Navbar';
+import type { UserItem, UsersResponse, UserStats, Branch } from '../types';
+import { AuthContext } from '../context/AuthContext';
+
+type BranchStatus = 'all' | 'assigned' | 'unassigned';
+
+const roleBadge = (role: string) => {
+    if (role === 'super_admin') return { label: 'Super Admin', cls: 'bg-rose-50 text-rose-600 border border-rose-100' };
+    if (role === 'admin') return { label: 'Admin', cls: 'bg-violet-50 text-violet-600 border border-violet-100' };
+    return { label: 'Empleado', cls: 'bg-slate-100 text-slate-600 border border-slate-200' };
+};
+
+const avatarColor = (role: string) => {
+    if (role === 'super_admin') return 'bg-rose-100 text-rose-700';
+    if (role === 'admin') return 'bg-violet-100 text-violet-700';
+    return 'bg-slate-200 text-slate-700';
+};
 
 const Users: FC = () => {
-    const [users, setUsers] = useState<UserItem[]>([])
-    const [stats, setStats] = useState<UserStats | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState('')
-    const [page, setPage] = useState(1)
-    const [totalPages, setTotalPages] = useState(1)
-    const [total, setTotal] = useState(0)
-    const [search, setSearch] = useState('')
-    const [roleFilter, setRoleFilter] = useState('')
-    const [editUser, setEditUser] = useState<UserItem | null>(null)
-    const [editForm, setEditForm] = useState({ name: '', email: '', role: '', branch_id: '' as string | null })
-    const [editError, setEditError] = useState('')
-    const [branches, setBranches] = useState<Branch[]>([])
+    const [users, setUsers] = useState<UserItem[]>([]);
+    const [stats, setStats] = useState<UserStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [total, setTotal] = useState(0);
+    const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('');
+    const [branchStatus, setBranchStatus] = useState<BranchStatus>('all');
+    const [editUser, setEditUser] = useState<UserItem | null>(null);
+    const [editForm, setEditForm] = useState({ name: '', email: '', role: '', branch_id: '' as string | null });
+    const [editError, setEditError] = useState('');
+    const [branches, setBranches] = useState<Branch[]>([]);
     const [editLoading, setEditLoading] = useState(false);
     const { user: currentUser, isSuperAdmin } = useContext(AuthContext);
 
     const fetchStats = async () => {
         try {
-            const res = await api.get('/users/stats')
-            setStats(res.data.data)
+            const res = await api.get('/users/stats');
+            setStats(res.data.data);
         } catch { }
-    }
+    };
 
     const fetchBranches = useCallback(async () => {
-        if (!isSuperAdmin) return
+        if (!isSuperAdmin) return;
         try {
-            const res = await api.get('/branches')
-            setBranches(res.data.data || res.data)
+            const res = await api.get('/branches');
+            setBranches(res.data.data || res.data);
         } catch { }
-    }, [isSuperAdmin])
+    }, [isSuperAdmin]);
 
     const fetchUsers = useCallback(async () => {
-        setLoading(true)
+        setLoading(true);
         try {
             const res = await api.get<UsersResponse>('/users', {
                 params: {
                     page,
                     limit: 10,
                     search: search || undefined,
-                    role: roleFilter || undefined
+                    role: roleFilter || undefined,
+                    ...(isSuperAdmin && branchStatus !== 'all' ? { branch_status: branchStatus } : {})
                 }
-            })
-            setUsers(res.data.data)
-            setTotalPages(res.data.totalPages)
-            setTotal(res.data.total)
+            });
+            setUsers(res.data.data);
+            setTotalPages(res.data.totalPages);
+            setTotal(res.data.total);
         } catch {
-            setError('Error al cargar usuarios')
+            setError('Error al cargar usuarios');
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }, [page, search, roleFilter])
+    }, [page, search, roleFilter, branchStatus, isSuperAdmin]);
 
     useEffect(() => {
-        fetchStats()
-        fetchUsers()
-        fetchBranches()
-    }, [fetchUsers, fetchBranches])
+        fetchStats();
+        fetchUsers();
+        fetchBranches();
+    }, [fetchUsers, fetchBranches]);
 
     const handleToggle = async (id: number) => {
         try {
-            await api.patch(`/users/${id}/toggle`)
-            fetchUsers()
-            fetchStats()
+            await api.patch(`/users/${id}/toggle`);
+            fetchUsers();
+            fetchStats();
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Error al cambiar estado')
+            alert(err.response?.data?.message || 'Error al cambiar estado');
         }
-    }
+    };
 
     const handleEditOpen = (user: UserItem) => {
-        setEditUser(user)
-        setEditForm({ name: user.name, email: user.email, role: user.role, branch_id: user.branch_id?.toString() || '' })
-        setEditError('')
-    }
+        setEditUser(user);
+        setEditForm({ name: user.name, email: user.email, role: user.role, branch_id: user.branch_id?.toString() || '' });
+        setEditError('');
+    };
 
     const handleEditSave = async () => {
-        if (!editUser) return
-        setEditLoading(true)
+        if (!editUser) return;
+        setEditLoading(true);
         try {
             const payload = {
                 ...editForm,
                 branch_id: editForm.branch_id ? Number(editForm.branch_id) : null
-            }
-            await api.put(`/users/${editUser.id}`, payload)
-            setEditUser(null)
-            fetchUsers()
+            };
+            await api.put(`/users/${editUser.id}`, payload);
+            setEditUser(null);
+            fetchUsers();
         } catch (err: any) {
-            setEditError(err.response?.data?.message || 'Error al actualizar usuario')
+            setEditError(err.response?.data?.message || 'Error al actualizar usuario');
         } finally {
-            setEditLoading(false)
+            setEditLoading(false);
         }
-    }
+    };
+
+    const handleTabChange = (tab: BranchStatus) => {
+        setBranchStatus(tab);
+        setPage(1);
+    };
+
+    const statCards = stats ? [
+        { label: 'Total', value: stats.total, color: 'text-indigo-600', bg: 'bg-indigo-50', icon: '👥' },
+        { label: 'Admins', value: stats.admins, color: 'text-violet-600', bg: 'bg-violet-50', icon: '🛡️' },
+        { label: 'Empleados', value: stats.employees, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: '👤' },
+        { label: 'Activos', value: stats.active, color: 'text-green-600', bg: 'bg-green-50', icon: '✅' },
+        { label: 'Inactivos', value: stats.inactive, color: 'text-rose-600', bg: 'bg-rose-50', icon: '❌' },
+    ] : [];
 
     return (
         <div className="page-container">
             <Navbar />
             <div className="main-content">
 
-                <h2 style={styles.title}>Gestión de Usuarios</h2>
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-0.5">Gestión de Usuarios</h1>
+                        <p className="text-xs text-slate-500 font-medium">
+                            {isSuperAdmin ? 'Panel global · Todos los usuarios del sistema' : 'Usuarios de tu sucursal'}
+                        </p>
+                    </div>
+                </div>
 
-                {/* Stats */}
+                {/* Stats Cards */}
                 {stats && (
-                    <div style={styles.statsGrid}>
-                        {[
-                            { label: 'Total', value: stats.total, color: '#4f46e5', bg: '#eef2ff' },
-                            { label: 'Admins', value: stats.admins, color: '#7c3aed', bg: '#f5f3ff' },
-                            { label: 'Empleados', value: stats.employees, color: '#059669', bg: '#ecfdf5' },
-                            { label: 'Activos', value: stats.active, color: '#10b981', bg: '#d1fae5' },
-                            { label: 'Inactivos', value: stats.inactive, color: '#e11d48', bg: '#ffe4e6' },
-                        ].map(stat => (
-                            <div key={stat.label} className="card" style={{ ...styles.statCard, borderTop: `4px solid ${stat.color}` }}>
-                                <div style={{ ...styles.statValue, color: '#0f172a' }}>{stat.value}</div>
-                                <div style={styles.statLabel}>{stat.label}</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+                        {statCards.map(stat => (
+                            <div key={stat.label} className="bg-white border border-slate-100 rounded-[1.25rem] shadow-sm p-4 flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center text-lg shrink-0`}>
+                                    {stat.icon}
+                                </div>
+                                <div>
+                                    <div className={`text-xl font-black ${stat.color}`}>{stat.value}</div>
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</div>
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
 
-                {/* Filtros */}
-                <div className="card" style={styles.filters}>
-                    <input
-                        type="text"
-                        placeholder="Buscar por nombre o email..."
-                        value={search}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(1); }}
-                        style={styles.searchInput}
-                    />
-                    <select
-                        value={roleFilter}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setRoleFilter(e.target.value); setPage(1); }}
-                        style={styles.select}
-                    >
-                        <option value="">Todos los roles</option>
-                        <option value="admin">Admin</option>
-                        <option value="employee">Empleado</option>
-                        <option value="super_admin">Super Admin</option>
-                    </select>
-                    <span style={styles.totalText}>Total: {total} usuarios</span>
+                {/* Filters + Tabs */}
+                <div className="bg-white border border-slate-100 rounded-[1.25rem] shadow-sm p-4 mb-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between flex-wrap">
+                    <div className="flex gap-2 flex-wrap">
+                        <div className="relative">
+                            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input
+                                type="text"
+                                placeholder="Buscar usuario..."
+                                value={search}
+                                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                                className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/40 w-56"
+                            />
+                        </div>
+                        <div className="relative">
+                            <select
+                                value={roleFilter}
+                                onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+                                className="appearance-none pl-3 pr-8 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 font-medium outline-none focus:ring-2 focus:ring-indigo-500/40 bg-white cursor-pointer"
+                            >
+                                <option value="">Todos los roles</option>
+                                <option value="admin">Admin</option>
+                                <option value="employee">Empleado</option>
+                                {isSuperAdmin && <option value="super_admin">Super Admin</option>}
+                            </select>
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        {/* Branch Status Tabs — Super Admin only */}
+                        {isSuperAdmin && (
+                            <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                                {([
+                                    { key: 'all', label: 'Todos' },
+                                    { key: 'assigned', label: 'Con Sucursal' },
+                                    { key: 'unassigned', label: 'Sin Sucursal' },
+                                ] as const).map(tab => (
+                                    <button
+                                        key={tab.key}
+                                        onClick={() => handleTabChange(tab.key)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${branchStatus === tab.key
+                                            ? 'bg-white text-slate-900 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <span className="text-xs font-bold text-slate-400 whitespace-nowrap">{total} usuarios</span>
+                    </div>
                 </div>
 
-                {/* Tabla */}
-                {loading && <p style={styles.loading}>Cargando usuarios...</p>}
+                {/* Table */}
+                {loading && (
+                    <div className="flex justify-center py-10">
+                        <div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-indigo-600 animate-spin" />
+                    </div>
+                )}
                 {error && <p className="error-msg">{error}</p>}
 
                 {!loading && !error && (
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                        <table style={styles.table}>
-                            <thead>
-                                <tr style={styles.tableHeader}>
-                                    <th style={styles.th}>ID</th>
-                                    <th style={styles.th}>Nombre</th>
-                                    <th style={styles.th}>Email</th>
-                                    <th style={styles.th}>Rol</th>
-                                    <th style={styles.th}>Sucursal</th>
-                                    <th style={styles.th}>Estado</th>
-                                    <th style={styles.th}>Creado</th>
-                                    <th style={styles.th}>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} style={styles.empty}>No hay usuarios</td>
-                                    </tr>
-                                ) : (
-                                    users.map((user, i) => (
-                                        <tr key={user.id} style={{
-                                            background: i % 2 === 0 ? 'white' : '#f8f9fa'
-                                        }}>
-                                            <td style={styles.td}>{user.id}</td>
-                                            <td style={styles.td}>{user.name}</td>
-                                            <td style={styles.td}>{user.email}</td>
-                                            <td style={styles.td}>
-                                                <span style={{
-                                                    ...styles.badge,
-                                                    background: user.role === 'admin' ? '#f5f3ff' : user.role === 'super_admin' ? '#ffe4e6' : '#ecfdf5',
-                                                    color: user.role === 'admin' ? '#7c3aed' : user.role === 'super_admin' ? '#e11d48' : '#059669'
-                                                }}>
-                                                    {user.role === 'admin' ? 'Admin' : user.role === 'super_admin' ? 'Super Admin' : 'Empleado'}
-                                                </span>
-                                            </td>
-                                            <td style={styles.td}>
-                                                <span style={{ color: '#475569', fontSize: '0.85rem' }}>
-                                                    {user.branch_name || 'Ninguna'}
-                                                </span>
-                                            </td>
-                                            <td style={styles.td}>
-                                                <span style={{
-                                                    ...styles.badge,
-                                                    background: user.is_active ? '#d1fae5' : '#ffe4e6',
-                                                    color: user.is_active ? '#047857' : '#be123c'
-                                                }}>
-                                                    {user.is_active ? 'Activo' : 'Inactivo'}
-                                                </span>
-                                            </td>
-                                            <td style={styles.td}>
-                                                {new Date(user.created_at).toLocaleDateString()}
-                                            </td>
-                                            <td style={styles.td}>
-                                                <div style={styles.actions}>
-                                                    {isSuperAdmin && (
-                                                        <>
-                                                            <button
-                                                                className="btn-secondary"
-                                                                style={styles.actionBtn}
-                                                                onClick={() => handleEditOpen(user)}
-                                                            >
-                                                                Editar
-                                                            </button>
-                                                            <button
-                                                                style={{
-                                                                    ...styles.actionBtn,
-                                                                    background: user.is_active ? '#fff1f2' : '#ecfdf5',
-                                                                    color: user.is_active ? '#e11d48' : '#047857',
-                                                                    border: user.is_active ? '1px solid #ffe4e6' : '1px solid #d1fae5',
-                                                                    borderRadius: '8px',
-                                                                    cursor: 'pointer',
-                                                                    fontWeight: 600
-                                                                }}
-                                                                onClick={() => handleToggle(user.id)}
-                                                            >
-                                                                {user.is_active ? 'Desactivar' : 'Activar'}
-                                                            </button>
-                                                        </>
-                                                    )}
+                    <div className="bg-white border border-slate-100 rounded-[1.25rem] shadow-sm overflow-hidden">
+                        {/* Header row */}
+                        <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-100">
+                            {['Usuario', 'Email', 'Rol', 'Sucursal', 'Estado', 'Acciones'].map(col => (
+                                <span key={col} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{col}</span>
+                            ))}
+                        </div>
+
+                        {users.length === 0 ? (
+                            <div className="text-center py-14 text-slate-400">
+                                <div className="text-4xl mb-3">🔍</div>
+                                <p className="font-bold text-sm">No se encontraron usuarios</p>
+                                <p className="text-xs mt-1">Intenta ajustar los filtros o la búsqueda</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-50">
+                                {users.map(user => {
+                                    const rb = roleBadge(user.role);
+                                    const ac = avatarColor(user.role);
+                                    return (
+                                        <div key={user.id} className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] gap-4 px-5 py-3.5 items-center hover:bg-slate-50/60 transition-colors">
+                                            {/* User */}
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${ac}`}>
+                                                    {user.name.charAt(0).toUpperCase()}
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                                <span className="text-sm font-semibold text-slate-800 truncate">{user.name}</span>
+                                            </div>
+                                            {/* Email */}
+                                            <span className="text-sm text-slate-500 truncate">{user.email}</span>
+                                            {/* Role */}
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${rb.cls}`}>{rb.label}</span>
+                                            {/* Branch */}
+                                            <span className={`text-xs font-medium truncate ${user.branch_name ? 'text-slate-700' : 'text-slate-400 italic'}`}>
+                                                {user.branch_name || '— Sin asignar'}
+                                            </span>
+                                            {/* Status */}
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${user.is_active ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
+                                                {user.is_active ? 'Activo' : 'Inactivo'}
+                                            </span>
+                                            {/* Actions */}
+                                            <div className="flex gap-2 justify-end">
+                                                {isSuperAdmin && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleEditOpen(user)}
+                                                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                                        >
+                                                            Editar
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleToggle(user.id)}
+                                                            className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${user.is_active
+                                                                ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                                                                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                                                            }`}
+                                                        >
+                                                            {user.is_active ? 'Desactivar' : 'Activar'}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* Paginación */}
+                {/* Pagination */}
                 {totalPages > 1 && (
-                    <div style={styles.pagination}>
+                    <div className="flex justify-center items-center gap-3 mt-6">
                         <button
-                            className="btn-secondary"
                             onClick={() => setPage(p => Math.max(1, p - 1))}
                             disabled={page === 1}
+                            className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
                         >
                             ← Anterior
                         </button>
-                        <span style={styles.pageInfo}>Página {page} de {totalPages}</span>
+                        <span className="text-sm font-bold text-slate-500">Página {page} de {totalPages}</span>
                         <button
-                            className="btn-secondary"
                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                             disabled={page === totalPages}
+                            className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
                         >
                             Siguiente →
                         </button>
                     </div>
                 )}
 
-                {/* Modal de edición */}
+                {/* Edit Modal */}
                 {editUser && (
-                    <div style={styles.overlay}>
-                        <div className="card" style={styles.modal}>
-                            <h3 style={styles.modalTitle}>Editar Usuario</h3>
-                            <div className="form-group">
-                                <label>Nombre</label>
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-[1.5rem] shadow-2xl w-full max-w-md p-6 flex flex-col gap-4">
+                            {/* Modal Header */}
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black ${avatarColor(editUser.role)}`}>
+                                    {editUser.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900">Editar Usuario</h3>
+                                    <p className="text-xs text-slate-400 font-medium">{editUser.email}</p>
+                                </div>
+                            </div>
+
+                            {/* Name */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre</label>
                                 <input
                                     value={editForm.name}
                                     onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/40"
                                 />
                             </div>
-                            <div className="form-group">
-                                <label>Email</label>
+
+                            {/* Email */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
                                 <input
                                     type="email"
                                     value={editForm.email}
                                     onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/40"
                                 />
                             </div>
-                            <div className="form-group">
-                                <label>Rol</label>
+
+                            {/* Role */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Rol</label>
                                 {editUser && currentUser && editUser.id === currentUser.id ? (
-                                    <div style={{ padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#94a3b8', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                    <div className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-sm text-slate-400">
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                                         No puedes cambiar tu propio rol
                                     </div>
                                 ) : (
-                                    <select
-                                        value={editForm.role}
-                                        onChange={e => setEditForm({ ...editForm, role: e.target.value })}
-                                        style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#0f172a', backgroundColor: '#fff' }}
-                                    >
-                                        <option value="admin">Admin</option>
-                                        <option value="employee">Empleado</option>
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            value={editForm.role}
+                                            onChange={e => setEditForm({ ...editForm, role: e.target.value })}
+                                            className="appearance-none w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/40 bg-white cursor-pointer"
+                                        >
+                                            <option value="admin">Admin</option>
+                                            <option value="employee">Empleado</option>
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
+
+                            {/* Branch (SuperAdmin only) */}
                             {isSuperAdmin && (
-                                <div className="form-group" style={{ marginTop: '1rem' }}>
-                                    <label>Sucursal (Solo Super Admin)</label>
-                                    <select
-                                        value={editForm.branch_id || ''}
-                                        onChange={e => setEditForm({ ...editForm, branch_id: e.target.value })}
-                                        style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRadius: '10px', fontSize: '0.95rem', color: '#0f172a', backgroundColor: '#fff' }}
-                                    >
-                                        <option value="">Ninguna</option>
-                                        {branches.map(b => (
-                                            <option key={b.id} value={b.id}>{b.name}</option>
-                                        ))}
-                                    </select>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Sucursal Asignada</label>
+                                    <div className="relative">
+                                        <select
+                                            value={editForm.branch_id || ''}
+                                            onChange={e => setEditForm({ ...editForm, branch_id: e.target.value })}
+                                            className="appearance-none w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/40 bg-white cursor-pointer"
+                                        >
+                                            <option value="">— Sin Sucursal</option>
+                                            {branches.map(b => (
+                                                <option key={b.id} value={b.id}>{b.name}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
-                            {editError && <p className="error-msg">{editError}</p>}
-                            <div style={styles.modalActions}>
+
+                            {editError && (
+                                <p className="text-xs font-bold text-rose-500 bg-rose-50 rounded-xl px-4 py-2.5">{editError}</p>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex gap-3 justify-end mt-2">
                                 <button
-                                    className="btn-secondary"
                                     onClick={() => setEditUser(null)}
+                                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                                 >
                                     Cancelar
                                 </button>
                                 <button
-                                    className="btn-primary"
-                                    style={{ width: 'auto' }}
                                     onClick={handleEditSave}
                                     disabled={editLoading}
+                                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                                 >
-                                    {editLoading ? 'Guardando...' : 'Guardar'}
+                                    {editLoading ? 'Guardando...' : 'Guardar Cambios'}
                                 </button>
                             </div>
                         </div>
@@ -337,103 +424,7 @@ const Users: FC = () => {
 
             </div>
         </div>
-    )
-}
+    );
+};
 
-const styles: Record<string, React.CSSProperties> = {
-    title: { color: '#0f172a', fontSize: '1.8rem', fontWeight: 800, marginBottom: '1.5rem', letterSpacing: '-0.025em' },
-    statsGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-        gap: '1.25rem',
-        marginBottom: '2rem'
-    },
-    statCard: { 
-        display: 'flex', 
-        flexDirection: 'column',
-        padding: '1.5rem',
-        border: '1px solid rgba(226, 232, 240, 0.6)'
-    },
-    statValue: { fontSize: '2rem', fontWeight: 800, marginBottom: '0.2rem' },
-    statLabel: { color: '#64748b', fontSize: '0.85rem', fontWeight: 500 },
-    filters: {
-        display: 'flex',
-        gap: '1rem',
-        alignItems: 'center',
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap'
-    },
-    searchInput: {
-        padding: '0.6rem 1rem',
-        border: '1.5px solid #e2e8f0',
-        borderRadius: '10px',
-        fontSize: '0.9rem',
-        width: '280px',
-        color: '#0f172a'
-    },
-    select: {
-        padding: '0.6rem 1rem',
-        border: '1.5px solid #e2e8f0',
-        borderRadius: '10px',
-        fontSize: '0.9rem',
-        color: '#0f172a'
-    },
-    totalText: { color: '#64748b', fontSize: '0.9rem', fontWeight: 500 },
-    loading: { textAlign: 'center', color: '#64748b', padding: '2rem' },
-    table: { width: '100%', borderCollapse: 'collapse' },
-    tableHeader: { background: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
-    th: {
-        padding: '0.8rem 1.5rem',
-        textAlign: 'left',
-        fontSize: '0.75rem',
-        color: '#64748b',
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em'
-    },
-    td: {
-        padding: '1rem 1.5rem',
-        fontSize: '0.9rem',
-        color: '#334155',
-        borderBottom: '1px solid #f1f5f9'
-    },
-    badge: {
-        padding: '0.3rem 0.8rem',
-        borderRadius: '20px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        display: 'inline-block'
-    },
-    actions: { display: 'flex', gap: '0.5rem' },
-    actionBtn: { fontSize: '0.85rem', padding: '0.4rem 0.8rem' },
-    empty: { textAlign: 'center', padding: '2rem', color: '#64748b' },
-    pagination: {
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: '1rem',
-        marginTop: '2.5rem'
-    },
-    pageInfo: { color: '#475569', fontSize: '0.9rem', fontWeight: 500 },
-    overlay: {
-        position: 'fixed',
-        top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(15, 23, 42, 0.4)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000
-    },
-    modal: { 
-        width: '100%', 
-        maxWidth: '450px', 
-        padding: '2rem',
-        borderRadius: '24px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-    },
-    modalTitle: { color: '#0f172a', marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 700 },
-    modalActions: { display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }
-}
-
-export default Users
+export default Users;

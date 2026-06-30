@@ -12,6 +12,10 @@ export class MovementController {
     getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
             const params = listMovementsSchema.parse(req.query)
+            // Scope movements to the branch of the authenticated user
+            if (req.user?.branch_id) {
+                params.branch_id = req.user.branch_id
+            }
             const result = await this.service.getAll(params)
             res.status(200).json({ ok: true, ...result })
         } catch (error) {

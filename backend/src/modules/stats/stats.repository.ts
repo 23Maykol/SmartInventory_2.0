@@ -59,17 +59,44 @@ export class StatsRepository {
             LIMIT 5
         `)
 
+        const [monthlyMovements] = await pool.query<any[]>(`
+            SELECT 
+                DATE_FORMAT(created_at, '%Y-%m-%d') as date,
+                DATE_FORMAT(created_at, '%d %b') as label,
+                COUNT(*) as total,
+                SUM(CASE WHEN type = 'entrada' THEN quantity ELSE 0 END) as entradas,
+                SUM(CASE WHEN type = 'salida' THEN quantity ELSE 0 END) as salidas
+            FROM inventory_movements
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d'), DATE_FORMAT(created_at, '%d %b')
+            ORDER BY date ASC
+        `)
+
+        const [stockByCategory] = await pool.query<any[]>(`
+            SELECT 
+                COALESCE(category, 'Sin categoría') as category,
+                SUM(stock) as total_stock,
+                COUNT(*) as product_count
+            FROM products
+            WHERE is_active = 1
+            GROUP BY category
+            ORDER BY total_stock DESC
+            LIMIT 8
+        `)
+
         return {
             products: products[0],
             users: users[0],
             movements: movements[0],
             recentMovements,
             lowStockProducts,
-            topProducts
+            topProducts,
+            monthlyMovements,
+            stockByCategory
         }
     }
 
-    async getSuperAdminStats(): Promise<any> {
+    async getSuperAdminStats(branchId?: number): Promise<any> {
         // General KPIs
         const [products] = await pool.execute<any[]>(`
             SELECT
@@ -106,18 +133,27 @@ export class StatsRepository {
         `)
 
         // Daily movements — last 30 days
-        const [monthlyMovements] = await pool.query<any[]>(`
+        let movQuery = `
             SELECT 
-                DATE_FORMAT(created_at, '%Y-%m-%d') as date,
-                DATE_FORMAT(created_at, '%d %b') as label,
+                DATE_FORMAT(m.created_at, '%Y-%m-%d') as date,
+                DATE_FORMAT(m.created_at, '%d %b') as label,
                 COUNT(*) as total,
-                SUM(CASE WHEN type = 'entrada' THEN quantity ELSE 0 END) as entradas,
-                SUM(CASE WHEN type = 'salida' THEN quantity ELSE 0 END) as salidas
-            FROM inventory_movements
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d'), DATE_FORMAT(created_at, '%d %b')
-            ORDER BY date ASC
-        `)
+                SUM(CASE WHEN m.type = 'entrada' THEN m.quantity ELSE 0 END) as entradas,
+                SUM(CASE WHEN m.type = 'salida' THEN m.quantity ELSE 0 END) as salidas
+            FROM inventory_movements m
+        `
+        const movValues: any[] = []
+
+        if (branchId) {
+            movQuery += ` JOIN users u ON m.user_id = u.id WHERE m.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND u.branch_id = ?`
+            movValues.push(branchId)
+        } else {
+            movQuery += ` WHERE m.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+        }
+
+        movQuery += ` GROUP BY DATE_FORMAT(m.created_at, '%Y-%m-%d'), DATE_FORMAT(m.created_at, '%d %b') ORDER BY date ASC`
+
+        const [monthlyMovements] = await pool.query<any[]>(movQuery, movValues)
 
         // Stock by category (pie chart)
         const [stockByCategory] = await pool.query<any[]>(`

@@ -120,6 +120,8 @@ export interface DashboardStats {
         category: string
         total_movimientos: number
     }[]
+    monthlyMovements: MonthlyMovement[]
+    stockByCategory: StockByCategory[]
 }
 
 // ─── Branches ────────────────────────────────────────────────

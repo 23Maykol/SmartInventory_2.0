@@ -10,6 +10,9 @@ const controller = new UserController()
 // Auth middleware: only authentication required for all routes
 router.use(authenticate)
 
+// Get users in the same branch as the authenticated user (for movement filter)
+router.get('/branch-users', authorize('admin', 'employee'), controller.getByBranch)
+
 // Lectura: admin y super_admin pueden listar, ver stats y obtener usuarios
 router.get('/', authorize('super_admin', 'admin'), controller.getAll)
 router.get('/stats', authorize('super_admin', 'admin'), controller.getStats)

@@ -13,6 +13,9 @@ export class UserController {
     getAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
             const params = listUsersSchema.parse(req.query)
+            if (req.user?.role === 'admin' && req.user?.branch_id) {
+                params.branch_id = req.user.branch_id
+            }
             const result = await this.service.getAll(params)
             res.status(200).json({ ok: true, ...result })
         } catch (error) {
@@ -79,8 +82,30 @@ export class UserController {
 
     getStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
-            const stats = await this.service.getStats()
+            let branchId: number | undefined
+            if (req.user?.role === 'admin' && req.user?.branch_id) {
+                branchId = req.user.branch_id
+            }
+            const stats = await this.service.getStats(branchId)
             res.status(200).json({ ok: true, data: stats })
+        } catch (error) {
+            next(error)
+        }
+    }
+
+    getByBranch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const branchId = req.user?.branch_id
+            if (!branchId) {
+                res.status(200).json({ ok: true, data: [] })
+                return
+            }
+            const { pool } = await import('../../config/db')
+            const [rows] = await pool.query<any[]>(
+                `SELECT id, name, email, role FROM users WHERE branch_id = ? AND is_active = 1 ORDER BY name ASC`,
+                [branchId]
+            )
+            res.status(200).json({ ok: true, data: rows })
         } catch (error) {
             next(error)
         }

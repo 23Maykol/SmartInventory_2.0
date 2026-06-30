@@ -1,26 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/axios'
 import Navbar from '../components/Navbar'
-import type { Movement, MovementsResponse, Product } from '../types'
+import type { Movement, MovementsResponse } from '../types'
+import { useAuth } from '../hooks/useAuth'
 
 const Movements = () => {
+    const { isAdmin, user } = useAuth()
     const [movements, setMovements] = useState<Movement[]>([])
-    const [products, setProducts] = useState<Product[]>([])
+    const [branchUsers, setBranchUsers] = useState<{ id: number; name: string; role: string }[]>([])
     const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [total, setTotal] = useState(0)
     const [typeFilter, setTypeFilter] = useState('')
-    const [showForm, setShowForm] = useState(false)
-    const [form, setForm] = useState({
-        product_id: '',
-        type: 'entrada',
-        quantity: '',
-        note: ''
-    })
-    const [formError, setFormError] = useState('')
-    const [formLoading, setFormLoading] = useState(false)
-    const [successMsg, setSuccessMsg] = useState('')
+    const [userFilter, setUserFilter] = useState('')
 
     const fetchMovements = useCallback(async () => {
         setLoading(true)
@@ -29,7 +22,8 @@ const Movements = () => {
                 params: {
                     page,
                     limit: 10,
-                    type: typeFilter || undefined
+                    type: typeFilter || undefined,
+                    user_id: isAdmin ? (userFilter || undefined) : user?.id
                 }
             })
             setMovements(res.data.data)
@@ -39,296 +33,155 @@ const Movements = () => {
         } finally {
             setLoading(false)
         }
-    }, [page, typeFilter])
+    }, [page, typeFilter, userFilter])
 
     useEffect(() => {
         fetchMovements()
-        api.get('/products?limit=100').then(res => setProducts(res.data.data))
+        api.get('/users/branch-users').then(res => setBranchUsers(res.data.data)).catch(() => {})
     }, [fetchMovements])
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setFormLoading(true)
-        setFormError('')
-        try {
-            await api.post('/movements', {
-                product_id: Number(form.product_id),
-                type: form.type,
-                quantity: Number(form.quantity),
-                note: form.note || null
-            })
-            setSuccessMsg('Movimiento registrado exitosamente')
-            setForm({ product_id: '', type: 'entrada', quantity: '', note: '' })
-            setShowForm(false)
-            fetchMovements()
-            setTimeout(() => setSuccessMsg(''), 3000)
-        } catch (err: any) {
-            setFormError(err.response?.data?.message || 'Error al registrar movimiento')
-        } finally {
-            setFormLoading(false)
-        }
-    }
 
     return (
         <div className="page-container">
             <Navbar />
             <div className="main-content">
-                <div style={styles.header}>
+                
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                     <div>
-                        <h2 style={styles.title}>Movimientos de Inventario</h2>
-                        <p style={styles.subtitle}>Total: {total} movimientos</p>
+                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Movimientos</h2>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="flex h-2 w-2 rounded-full bg-indigo-500"></span>
+                            <p className="text-sm font-semibold text-slate-500">Historial: {total} registros</p>
+                        </div>
                     </div>
-                    <div style={styles.headerActions}>
-                        <select
-                            value={typeFilter}
-                            onChange={e => { setTypeFilter(e.target.value); setPage(1) }}
-                            style={styles.select}
-                        >
-                            <option value="">Todos los tipos</option>
-                            <option value="entrada">Entradas</option>
-                            <option value="salida">Salidas</option>
-                        </select>
-                        <button
-                            className="btn-primary"
-                            style={{ width: 'auto' }}
-                            onClick={() => { setShowForm(!showForm); setFormError('') }}
-                        >
-                            {showForm ? 'Cancelar' : '+ Registrar Movimiento'}
-                        </button>
+                    <div className="flex flex-col sm:flex-row gap-3 items-center w-full md:w-auto">
+                        {/* Type filter */}
+                        <div className="relative w-full sm:w-auto">
+                            <select
+                                value={typeFilter}
+                                onChange={e => { setTypeFilter(e.target.value); setPage(1) }}
+                                className="appearance-none w-full sm:w-44 px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-slate-200/80 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                            >
+                                <option value="">Todos los tipos</option>
+                                <option value="entrada">Solo Entradas</option>
+                                <option value="salida">Solo Salidas</option>
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                        </div>
+
+                        {/* User filter — only for admins */}
+                        {isAdmin && branchUsers.length > 0 && (
+                            <div className="relative w-full sm:w-auto">
+                                <select
+                                    value={userFilter}
+                                    onChange={e => { setUserFilter(e.target.value); setPage(1) }}
+                                    className="appearance-none w-full sm:w-52 pl-9 pr-4 py-2.5 bg-white/80 backdrop-blur-sm border border-slate-200/80 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                >
+                                    <option value="">Todos los usuarios</option>
+                                    {branchUsers.map(u => (
+                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 </div>
 
-                {successMsg && (
-                    <div style={styles.successBanner}>{successMsg}</div>
-                )}
+                {/* Tabla */}
 
-                {/* Formulario */}
-                {showForm && (
-                    <div className="card" style={styles.form}>
-                        <h3 style={styles.formTitle}>Registrar Movimiento</h3>
-                        <form onSubmit={handleSubmit}>
-                            <div style={styles.formGrid}>
-                                <div className="form-group">
-                                    <label>Producto *</label>
-                                    <select
-                                        value={form.product_id}
-                                        onChange={e => setForm({ ...form, product_id: e.target.value })}
-                                        style={styles.formSelect}
-                                        required
-                                    >
-                                        <option value="">Seleccionar producto...</option>
-                                        {products.map(p => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} (Stock: {p.stock})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Tipo *</label>
-                                    <select
-                                        value={form.type}
-                                        onChange={e => setForm({ ...form, type: e.target.value })}
-                                        style={styles.formSelect}
-                                        required
-                                    >
-                                        <option value="entrada">Entrada</option>
-                                        <option value="salida">Salida</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Cantidad *</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={form.quantity}
-                                        onChange={e => setForm({ ...form, quantity: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Nota</label>
-                                    <input
-                                        type="text"
-                                        value={form.note}
-                                        onChange={e => setForm({ ...form, note: e.target.value })}
-                                        placeholder="Opcional..."
-                                    />
-                                </div>
-                            </div>
-                            {formError && <p className="error-msg">{formError}</p>}
-                            <button
-                                type="submit"
-                                className="btn-primary"
-                                style={{ width: 'auto' }}
-                                disabled={formLoading}
-                            >
-                                {formLoading ? 'Registrando...' : 'Registrar Movimiento'}
-                            </button>
-                        </form>
+                {/* Tabla */}
+                {loading && (
+                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                        <svg className="animate-spin h-8 w-8 mb-4 text-indigo-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <p className="text-sm font-semibold">Cargando movimientos...</p>
                     </div>
                 )}
 
-                {/* Tabla */}
-                {loading && <p style={styles.loading}>Cargando movimientos...</p>}
-
                 {!loading && (
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                        <table style={styles.table}>
-                            <thead>
-                                <tr style={styles.tableHead}>
-                                    <th style={styles.th}>ID</th>
-                                    <th style={styles.th}>Producto</th>
-                                    <th style={styles.th}>Tipo</th>
-                                    <th style={styles.th}>Cantidad</th>
-                                    <th style={styles.th}>Usuario</th>
-                                    <th style={styles.th}>Nota</th>
-                                    <th style={styles.th}>Fecha</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {movements.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} style={styles.empty}>
-                                            No hay movimientos registrados
-                                        </td>
+                    <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50/80 border-b border-slate-200/80">
+                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Producto</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cantidad</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Usuario</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nota</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</th>
                                     </tr>
-                                ) : (
-                                    movements.map((m, i) => (
-                                        <tr key={m.id} style={{ background: i % 2 === 0 ? 'white' : '#f8f9fa' }}>
-                                            <td style={styles.td}>{m.id}</td>
-                                            <td style={styles.td}><strong>{m.product_name}</strong></td>
-                                            <td style={styles.td}>
-                                                <span style={{
-                                                    ...styles.badge,
-                                                    background: m.type === 'entrada' ? '#d1fae5' : '#ffe4e6',
-                                                    color: m.type === 'entrada' ? '#047857' : '#be123c'
-                                                }}>
-                                                    {m.type === 'entrada' ? 'Entrada' : 'Salida'}
-                                                </span>
-                                            </td>
-                                            <td style={styles.td}>
-                                                <strong style={{ color: m.type === 'entrada' ? '#047857' : '#be123c' }}>
-                                                    {m.type === 'entrada' ? '+' : '-'}{m.quantity}
-                                                </strong>
-                                            </td>
-                                            <td style={styles.td}>{m.user_name}</td>
-                                            <td style={styles.td}>{m.note || '—'}</td>
-                                            <td style={styles.td}>
-                                                {new Date(m.created_at).toLocaleString()}
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {movements.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">
+                                                No se encontraron movimientos registrados
                                             </td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                    ) : (
+                                        movements.map((m) => (
+                                            <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4 text-sm text-slate-400 font-medium">#{m.id}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{m.product_name}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase inline-block ${m.type === 'entrada' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                        {m.type}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`text-base font-black ${m.type === 'entrada' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {m.type === 'entrada' ? '+' : '-'}{m.quantity}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-500 font-medium">{m.user_name}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-500">{m.note || <span className="text-slate-300 italic">Sin nota</span>}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                                                    {new Date(m.created_at).toLocaleString('es-ES', { 
+                                                        day: '2-digit', month: 'short', year: 'numeric', 
+                                                        hour: '2-digit', minute: '2-digit' 
+                                                    })}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
 
                 {/* Paginación */}
                 {totalPages > 1 && (
-                    <div style={styles.pagination}>
+                    <div className="flex justify-center items-center gap-4 mt-8">
                         <button
-                            className="btn-secondary"
+                            className="w-10 h-10 rounded-full border border-slate-200 bg-white text-slate-600 flex items-center justify-center hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all shadow-sm"
                             onClick={() => setPage(p => Math.max(1, p - 1))}
                             disabled={page === 1}
                         >
-                            ← Anterior
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
                         </button>
-                        <span style={styles.pageInfo}>Página {page} de {totalPages}</span>
+                        <span className="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase">
+                            Página {page} de {totalPages}
+                        </span>
                         <button
-                            className="btn-secondary"
+                            className="w-10 h-10 rounded-full border border-slate-200 bg-white text-slate-600 flex items-center justify-center hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all shadow-sm"
                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                             disabled={page === totalPages}
                         >
-                            Siguiente →
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7"></path></svg>
                         </button>
                     </div>
                 )}
             </div>
         </div>
     )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-    header: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: '2rem',
-        flexWrap: 'wrap',
-        gap: '1.5rem'
-    },
-    title: { color: '#0f172a', fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.025em' },
-    subtitle: { color: '#64748b', fontSize: '0.95rem', marginTop: '0.2rem' },
-    headerActions: { display: 'flex', gap: '1rem', alignItems: 'center' },
-    select: {
-        padding: '0.6rem 1rem',
-        border: '1.5px solid #e2e8f0',
-        borderRadius: '10px',
-        fontSize: '0.9rem',
-        color: '#0f172a',
-        backgroundColor: '#fff'
-    },
-    successBanner: {
-        background: '#ecfdf5',
-        color: '#047857',
-        padding: '0.8rem 1.2rem',
-        borderRadius: '10px',
-        marginBottom: '1.5rem',
-        fontWeight: 500,
-        border: '1px solid #d1fae5'
-    },
-    form: { marginBottom: '2rem' },
-    formTitle: { color: '#0f172a', marginBottom: '1.25rem', fontSize: '1.2rem', fontWeight: 700 },
-    formGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '0 1.25rem'
-    },
-    formSelect: {
-        width: '100%',
-        padding: '0.75rem 1rem',
-        border: '1.5px solid #e2e8f0',
-        borderRadius: '10px',
-        fontSize: '0.95rem',
-        color: '#0f172a',
-        backgroundColor: '#fff'
-    },
-    loading: { textAlign: 'center', color: '#64748b', padding: '2rem' },
-    table: { width: '100%', borderCollapse: 'collapse' },
-    tableHead: { background: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
-    th: {
-        padding: '0.8rem 1.5rem',
-        textAlign: 'left',
-        fontSize: '0.75rem',
-        color: '#64748b',
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em'
-    },
-    td: {
-        padding: '1rem 1.5rem',
-        fontSize: '0.9rem',
-        color: '#334155',
-        borderBottom: '1px solid #f1f5f9'
-    },
-    badge: {
-        padding: '0.3rem 0.8rem',
-        borderRadius: '20px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        display: 'inline-block'
-    },
-    empty: { textAlign: 'center', padding: '2rem', color: '#64748b' },
-    pagination: {
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: '1rem',
-        marginTop: '2.5rem'
-    },
-    pageInfo: { color: '#475569', fontSize: '0.9rem', fontWeight: 500 }
 }
 
 export default Movements
