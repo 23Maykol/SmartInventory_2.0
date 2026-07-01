@@ -33,8 +33,8 @@ app.set('etag', false)
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-// ─── Rate limit global ───
-app.use('/api/', globalLimiter)
+// ─── Rate limit global ─── TODO: Re-enable after JMeter testing
+// app.use('/api/', globalLimiter)
 
 // ─── Logger de peticiones ───
 app.use((req, res, next) => {
